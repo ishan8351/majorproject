@@ -6,15 +6,18 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
+from rich.syntax import Syntax
 
 from regradar.parser.hcl_parser import HCLParser
 from regradar.graph.builder import DependencyGraphBuilder
 from regradar.graph.centrality import CentralityEngine
 from regradar.models import RiskTier
-from regradar.invariant.models import InvariantReport, ViolationType
+from regradar.invariant.models import InvariantReport
 from regradar.invariant.plan_parser import PlanParser
 from regradar.invariant.invariant_engine import InvariantEngine
 from regradar.invariant.sandbox import SandboxRunner
+from regradar.remediation.models import GatingStatus, SwarmExecutionResult
+from regradar.remediation.swarm_coordinator import SwarmCoordinator
 
 console = Console()
 
@@ -56,7 +59,6 @@ def scan_directory(
     engine = CentralityEngine(builder.graph)
     summary = engine.get_summary()
 
-    # Create Display Table
     table = Table(
         title="Infrastructure Dependency & Blast-Radius Risk Analysis",
         show_header=True,
@@ -125,7 +127,6 @@ def scan_directory(
 
 
 def render_invariant_report(report: InvariantReport) -> int:
-    """Renders formatted invariant verification report."""
     title = (
         "[bold green]✔ ZERO-DESTRUCTION INVARIANT PRESERVED[/bold green]"
         if report.is_safe
@@ -210,6 +211,87 @@ def verify_sandbox(target_dir: str) -> int:
     return render_invariant_report(report)
 
 
+def remediate_directory(target_dir: str, apply_changes: bool = False) -> int:
+    path = Path(target_dir).resolve()
+    if not path.exists():
+        console.print(f"[bold red]Target directory not found:[/bold red] {path}")
+        return 1
+
+    console.print(
+        Panel(
+            f"[bold cyan]RegRadar Phase 3: Multi-Agent Autonomous Compliance Remediation[/bold cyan]\n"
+            f"[dim]Closed-loop agent swarm with dry-run invariant verification:[/dim] {path}",
+            border_style="cyan",
+        )
+    )
+
+    coordinator = SwarmCoordinator()
+    try:
+        result: SwarmExecutionResult = coordinator.remediate_directory(
+            path, apply_changes=apply_changes
+        )
+    except Exception as e:
+        console.print(f"[bold red]Remediation execution error:[/bold red] {e}")
+        return 1
+
+    # Render Swarm Tasks Table
+    table = Table(
+        title="Regulatory Compliance Audit & Blast-Radius Gating",
+        show_header=True,
+        header_style="bold magenta",
+    )
+    table.add_column("Resource", style="bold")
+    table.add_column("Rule / Check ID", justify="center")
+    table.add_column("Statute / Framework", style="dim")
+    table.add_column("Blast Radius", justify="center")
+    table.add_column("Gating Decision", justify="center")
+
+    for task in result.tasks:
+        if task.gating_status == GatingStatus.AUTONOMOUS_ELIGIBLE:
+            gate_styled = "[bold green]AUTONOMOUS_ELIGIBLE[/bold green]"
+        else:
+            gate_styled = "[bold red]HUMAN_ESCALATION[/bold red]"
+
+        framework_str = task.action.statute_reference if task.action else "General Policy"
+
+        table.add_row(
+            task.violation.resource_id,
+            task.violation.check_id,
+            framework_str,
+            f"{task.blast_radius_score:.4f} ({task.risk_tier})",
+            gate_styled,
+        )
+
+    console.print(table)
+
+    # Render Summary
+    console.print(
+        Panel(
+            f"[bold]Remediation Swarm Execution Summary:[/bold]\n"
+            f"• Total Violations Found: {result.total_violations_found}\n"
+            f"• Autonomous Remediation Eligible: [green]{result.autonomous_remediations_eligible}[/green]\n"
+            f"• Human Review Gated: [yellow]{result.human_escalations_required}[/yellow]\n"
+            f"• Invariant Verified & Accepted Patches: [bold green]{result.patches_verified_and_accepted}[/bold green]\n"
+            f"• Rejected / Unsafe Mutations: [bold red]{result.patches_rejected_and_escalated}[/bold red]",
+            border_style="green" if result.patches_verified_and_accepted > 0 else "yellow",
+        )
+    )
+
+    if result.accepted_patches:
+        console.print("[bold green]Verified Non-Destructive Patches Synthesized:[/bold green]")
+        for p in result.accepted_patches:
+            console.print(f"\n[cyan]File: {p.target_file} | Resource: {p.resource_id}[/cyan]")
+            syntax = Syntax(p.remediated_snippet, "hcl", theme="monokai", line_numbers=True)
+            console.print(syntax)
+
+    if apply_changes:
+        console.print("\n[bold green]✔ All verified patches successfully written to disk![/bold green]")
+    else:
+        console.print("\n[dim]Dry-run mode: Patches verified in sandbox. Run with '--apply' to persist.[/dim]")
+
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="RegRadar: Autonomous, Zero-Destruction Compliance Remediation for IaC"
@@ -231,6 +313,11 @@ def main():
     sb_p = subparsers.add_parser("verify-sandbox", help="Run ephemeral dry-run sandbox and verify invariants")
     sb_p.add_argument("path", nargs="?", default=".", help="Path to Terraform directory")
 
+    # Command: remediate (Phase 3)
+    rem_p = subparsers.add_parser("remediate", help="Autonomous multi-agent compliance remediation")
+    rem_p.add_argument("path", nargs="?", default=".", help="Path to Terraform directory")
+    rem_p.add_argument("--apply", action="store_true", help="Apply verified patches to disk")
+
     args = parser.parse_args()
 
     if not args.subcommand or args.subcommand == "scan":
@@ -250,6 +337,8 @@ def main():
         sys.exit(verify_plan_file(args.plan_file))
     elif args.subcommand == "verify-sandbox":
         sys.exit(verify_sandbox(args.path))
+    elif args.subcommand == "remediate":
+        sys.exit(remediate_directory(args.path, apply_changes=args.apply))
 
 
 if __name__ == "__main__":
