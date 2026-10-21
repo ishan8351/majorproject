@@ -1,0 +1,47 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.11.5",
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.safe_bucket",
+      "type": "aws_s3_bucket",
+      "name": "safe_bucket",
+      "change": {
+        "actions": ["update"],
+        "before": {"bucket": "prod-data", "tags": {"Env": "prod"}},
+        "after": {"bucket": "prod-data", "tags": {"Env": "prod", "Compliance": "HIPAA"}}
+      }
+    },
+    {
+      "address": "aws_db_instance.customer_db",
+      "type": "aws_db_instance",
+      "name": "customer_db",
+      "action_reason": "replace_because_cannot_be_updated",
+      "change": {
+        "actions": ["delete", "create"],
+        "before": {"identifier": "old-customer-db", "allocated_storage": 50},
+        "after": {"identifier": "new-customer-db", "allocated_storage": 50}
+      }
+    },
+    {
+      "address": "aws_security_group_rule.legacy_ingress",
+      "type": "aws_security_group_rule",
+      "name": "legacy_ingress",
+      "change": {
+        "actions": ["delete"],
+        "before": {"type": "ingress", "from_port": 22, "to_port": 22},
+        "after": null
+      }
+    },
+    {
+      "address": "aws_s3_bucket.audit_logs",
+      "type": "aws_s3_bucket",
+      "name": "audit_logs",
+      "change": {
+        "actions": ["update"],
+        "before": {"bucket": "audit-logs", "lifecycle_rule": [{"enabled": true}]},
+        "after": {"bucket": "audit-logs", "lifecycle_rule": null}
+      }
+    }
+  ]
+}
