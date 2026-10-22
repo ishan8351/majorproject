@@ -18,6 +18,8 @@ from regradar.invariant.invariant_engine import InvariantEngine
 from regradar.invariant.sandbox import SandboxRunner
 from regradar.remediation.models import GatingStatus, SwarmExecutionResult
 from regradar.remediation.swarm_coordinator import SwarmCoordinator
+from regradar.benchmark.evaluator import BenchmarkEvaluator
+from regradar.benchmark.report_generator import ReportGenerator
 
 console = Console()
 
@@ -234,7 +236,6 @@ def remediate_directory(target_dir: str, apply_changes: bool = False) -> int:
         console.print(f"[bold red]Remediation execution error:[/bold red] {e}")
         return 1
 
-    # Render Swarm Tasks Table
     table = Table(
         title="Regulatory Compliance Audit & Blast-Radius Gating",
         show_header=True,
@@ -264,7 +265,6 @@ def remediate_directory(target_dir: str, apply_changes: bool = False) -> int:
 
     console.print(table)
 
-    # Render Summary
     console.print(
         Panel(
             f"[bold]Remediation Swarm Execution Summary:[/bold]\n"
@@ -288,6 +288,39 @@ def remediate_directory(target_dir: str, apply_changes: bool = False) -> int:
         console.print("\n[bold green]✔ All verified patches successfully written to disk![/bold green]")
     else:
         console.print("\n[dim]Dry-run mode: Patches verified in sandbox. Run with '--apply' to persist.[/dim]")
+
+    return 0
+
+
+def run_benchmark(
+    target_dir: str,
+    include_ablation: bool = True,
+    export_markdown: Optional[str] = None,
+    export_latex: Optional[str] = None,
+) -> int:
+    path = Path(target_dir).resolve()
+    if not path.exists():
+        console.print(f"[bold red]Target directory not found:[/bold red] {path}")
+        return 1
+
+    evaluator = BenchmarkEvaluator()
+    result = evaluator.evaluate_target(path)
+
+    ablation = None
+    if include_ablation:
+        ablation = evaluator.run_comparative_ablation(path)
+
+    ReportGenerator.render_console(result, ablation)
+
+    if export_markdown:
+        md_text = ReportGenerator.generate_markdown_report(result, ablation)
+        Path(export_markdown).write_text(md_text, encoding="utf-8")
+        console.print(f"[bold green]Saved Markdown report to:[/bold green] {export_markdown}")
+
+    if export_latex and ablation:
+        tex_text = ReportGenerator.generate_latex_table(ablation)
+        Path(export_latex).write_text(tex_text, encoding="utf-8")
+        console.print(f"[bold green]Saved LaTeX table to:[/bold green] {export_latex}")
 
     return 0
 
@@ -318,6 +351,13 @@ def main():
     rem_p.add_argument("path", nargs="?", default=".", help="Path to Terraform directory")
     rem_p.add_argument("--apply", action="store_true", help="Apply verified patches to disk")
 
+    # Command: benchmark (Phase 4)
+    bm_p = subparsers.add_parser("benchmark", help="Empirical evaluation & comparative ablation")
+    bm_p.add_argument("path", nargs="?", default=".", help="Path to Terraform directory")
+    bm_p.add_argument("--no-ablation", action="store_true", help="Omit comparative ablation study")
+    bm_p.add_argument("--markdown", dest="export_markdown", help="Export Markdown report file")
+    bm_p.add_argument("--latex", dest="export_latex", help="Export LaTeX report table")
+
     args = parser.parse_args()
 
     if not args.subcommand or args.subcommand == "scan":
@@ -339,6 +379,15 @@ def main():
         sys.exit(verify_sandbox(args.path))
     elif args.subcommand == "remediate":
         sys.exit(remediate_directory(args.path, apply_changes=args.apply))
+    elif args.subcommand == "benchmark":
+        sys.exit(
+            run_benchmark(
+                args.path,
+                include_ablation=not args.no_ablation,
+                export_markdown=args.export_markdown,
+                export_latex=args.export_latex,
+            )
+        )
 
 
 if __name__ == "__main__":

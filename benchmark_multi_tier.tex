@@ -1,0 +1,13 @@
+\begin{table}[htbp]
+\centering
+\caption{Comparative Ablation Study: RegRadar vs. Unconstrained Generative AI Baseline}
+\label{tab:regradar_ablation}
+\begin{tabular}{lcccc}
+\hline
+\textbf{Framework / Approach} & \textbf{Remediation Rate} & \textbf{Invariant Preservation} & \textbf{Destructive Mutations} & \textbf{Blast-Radius Gate} \\
+\hline
+Unconstrained LLM Baseline      & 60.0\% & 66.7\% & 5 & None (Blind) \\
+\textbf{RegRadar (Ours)}      & \textbf{20.0\%} & \textbf{100.0\%} & \textbf{0} & \textbf{Centrality Bounded} \\
+\hline
+\end{tabular}
+\end{table}
