@@ -1,0 +1,694 @@
+[
+  {
+    "check_id": "CKV_AWS_19",
+    "name": "S3 Server-Side Encryption",
+    "description": "Enforce default AES-256 server-side encryption via additive attachment.",
+    "resource_type": "aws_s3_bucket",
+    "framework": "HIPAA",
+    "statute_reference": "HIPAA \u00a7164.312(a)(2)(iv) & GDPR Art. 32(1)(a)",
+    "control_ids": [
+      "HIPAA_164_312_a_2_iv",
+      "GDPR_Art_32_1_a",
+      "PCI_DSS_3_4",
+      "NIST_SC_13"
+    ],
+    "requirement_id": "REQ_ENCRYPTION_AT_REST",
+    "strategy": "ADDITIVE_ATTACHMENT",
+    "target_attribute": null,
+    "attribute_value": null,
+    "additive_resource_template": "\nresource \"aws_s3_bucket_server_side_encryption_configuration\" \"{name}_encryption\" {{\n  bucket = {resource_id}.id\n\n  rule {{\n    apply_server_side_encryption_by_default {{\n      sse_algorithm = \"AES256\"\n    }}\n  }}\n}}\n",
+    "validation_rules": [
+      "require_sse_algorithm_aes256",
+      "prevent_destructive_bucket_recreation"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_21",
+    "name": "S3 Object Versioning",
+    "description": "Enforce immutable object versioning for data recovery.",
+    "resource_type": "aws_s3_bucket",
+    "framework": "HIPAA",
+    "statute_reference": "HIPAA \u00a7164.308(a)(7)(ii)(A) & GDPR Art. 32(1)(c)",
+    "control_ids": [
+      "HIPAA_164_308_a_7_ii_A",
+      "GDPR_Art_32_1_c",
+      "NIST_CP_9"
+    ],
+    "requirement_id": "REQ_BACKUP_AND_RESILIENCE",
+    "strategy": "ADDITIVE_ATTACHMENT",
+    "target_attribute": null,
+    "attribute_value": null,
+    "additive_resource_template": "\nresource \"aws_s3_bucket_versioning\" \"{name}_versioning\" {{\n  bucket = {resource_id}.id\n  versioning_configuration {{\n    status = \"Enabled\"\n  }}\n}}\n",
+    "validation_rules": [
+      "require_status_enabled",
+      "zero_destruction_guarantee"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_53",
+    "name": "S3 Public Access Block",
+    "description": "Enforce universal public access block on cloud storage.",
+    "resource_type": "aws_s3_bucket",
+    "framework": "NIST SP 800-53",
+    "statute_reference": "NIST SP 800-53 AC-3 / AC-4 & GDPR Art. 32",
+    "control_ids": [
+      "NIST_AC_3",
+      "NIST_AC_4",
+      "GDPR_Art_32_1_b",
+      "PCI_DSS_1_3"
+    ],
+    "requirement_id": "REQ_ZERO_PUBLIC_INGRESS",
+    "strategy": "ADDITIVE_ATTACHMENT",
+    "target_attribute": null,
+    "attribute_value": null,
+    "additive_resource_template": "\nresource \"aws_s3_bucket_public_access_block\" \"{name}_public_block\" {{\n  bucket = {resource_id}.id\n\n  block_public_acls       = true\n  block_public_policy     = true\n  ignore_public_acls      = true\n  restrict_public_buckets = true\n}}\n",
+    "validation_rules": [
+      "enforce_all_four_block_flags"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_79",
+    "name": "EC2 IMDSv2 Enforcement",
+    "description": "Mandate IMDSv2 token-based authentication to prevent SSRF credential theft.",
+    "resource_type": "aws_instance",
+    "framework": "NIST SP 800-53",
+    "statute_reference": "NIST SP 800-53 SC-8 / IA-2",
+    "control_ids": [
+      "NIST_SC_8",
+      "NIST_IA_2"
+    ],
+    "requirement_id": "REQ_LEAST_PRIVILEGE",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "metadata_options",
+    "attribute_value": "  metadata_options {\n    http_tokens   = \"required\"\n    http_endpoint = \"enabled\"\n  }",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "require_http_tokens_required"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_135",
+    "name": "EC2 EBS Optimization",
+    "description": "Enable dedicated EBS throughput for persistent I/O integrity.",
+    "resource_type": "aws_instance",
+    "framework": "NIST SP 800-53",
+    "statute_reference": "NIST SP 800-53 CP-2 (Contingency Plan)",
+    "control_ids": [
+      "NIST_CP_2"
+    ],
+    "requirement_id": "REQ_SYSTEM_INTEGRITY",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "ebs_optimized",
+    "attribute_value": "  ebs_optimized = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "ensure_ebs_optimized_true"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_23",
+    "name": "Security Group Description",
+    "description": "Enforce security policy audit descriptions on firewalls.",
+    "resource_type": "aws_security_group",
+    "framework": "NIST SP 800-53",
+    "statute_reference": "NIST SP 800-53 AC-4 / AU-3",
+    "control_ids": [
+      "NIST_AC_4",
+      "NIST_AU_3"
+    ],
+    "requirement_id": "REQ_ZERO_PUBLIC_INGRESS",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "description",
+    "attribute_value": "  description = \"RegRadar managed: TLS ingress restricted to secure endpoints\"",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "non_empty_description"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_18",
+    "name": "S3 Access Logging",
+    "description": "Enforce centralized audit access logging for S3 bucket requests.",
+    "resource_type": "aws_s3_bucket",
+    "framework": "NIST SP 800-53",
+    "statute_reference": "NIST SP 800-53 AU-2 / AU-3 & HIPAA \u00a7164.312(b)",
+    "control_ids": [
+      "NIST_AU_2",
+      "NIST_AU_3",
+      "HIPAA_164_312_b",
+      "PCI_DSS_10_1"
+    ],
+    "requirement_id": "REQ_AUDIT_LOGGING",
+    "strategy": "ADDITIVE_ATTACHMENT",
+    "target_attribute": null,
+    "attribute_value": null,
+    "additive_resource_template": "\nresource \"aws_s3_bucket_logging\" \"{name}_logging\" {{\n  bucket        = {resource_id}.id\n  target_bucket = \"audit-logs-central\"\n  target_prefix = \"s3-access-logs/{name}/\"\n}}\n",
+    "validation_rules": [
+      "ensure_target_bucket_defined"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_145",
+    "name": "S3 KMS CMK Encryption",
+    "description": "Enforce S3 bucket encryption with customer managed KMS keys (CMK).",
+    "resource_type": "aws_s3_bucket",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 3.4 / 3.5 & NIST SP 800-53 SC-13",
+    "control_ids": [
+      "PCI_DSS_3_4",
+      "PCI_DSS_3_5",
+      "NIST_SC_13",
+      "HIPAA_164_312_a_2_iv"
+    ],
+    "requirement_id": "REQ_ENCRYPTION_AT_REST",
+    "strategy": "ADDITIVE_ATTACHMENT",
+    "target_attribute": null,
+    "attribute_value": null,
+    "additive_resource_template": "\nresource \"aws_s3_bucket_server_side_encryption_configuration\" \"{name}_kms_encryption\" {{\n  bucket = {resource_id}.id\n\n  rule {{\n    apply_server_side_encryption_by_default {{\n      kms_master_key_id = \"aws_kms_key.default.arn\"\n      sse_algorithm     = \"aws:kms\"\n    }}\n  }}\n}}\n",
+    "validation_rules": [
+      "require_sse_algorithm_aws_kms"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_54",
+    "name": "S3 Block Public Policy",
+    "description": "Ensure S3 block public policy is enabled to prevent public bucket policies.",
+    "resource_type": "aws_s3_bucket",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 1.3 & NIST SP 800-53 AC-3",
+    "control_ids": [
+      "PCI_DSS_1_3",
+      "NIST_AC_3"
+    ],
+    "requirement_id": "REQ_ZERO_PUBLIC_INGRESS",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "block_public_policy",
+    "attribute_value": "  block_public_policy = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "block_public_policy_true"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_55",
+    "name": "S3 Ignore Public ACLs",
+    "description": "Ensure S3 bucket ignores public ACLs, preventing public permissions grant.",
+    "resource_type": "aws_s3_bucket",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 1.3 & NIST SP 800-53 AC-3",
+    "control_ids": [
+      "PCI_DSS_1_3",
+      "NIST_AC_3"
+    ],
+    "requirement_id": "REQ_ZERO_PUBLIC_INGRESS",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "ignore_public_acls",
+    "attribute_value": "  ignore_public_acls = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "ignore_public_acls_true"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_56",
+    "name": "S3 Restrict Public Buckets",
+    "description": "Restrict bucket access to authorized users and AWS service principals.",
+    "resource_type": "aws_s3_bucket",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 1.3 & NIST SP 800-53 AC-3",
+    "control_ids": [
+      "PCI_DSS_1_3",
+      "NIST_AC_3"
+    ],
+    "requirement_id": "REQ_ZERO_PUBLIC_INGRESS",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "restrict_public_buckets",
+    "attribute_value": "  restrict_public_buckets = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "restrict_public_buckets_true"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_16",
+    "name": "RDS Storage Encryption",
+    "description": "Enforce cryptographic storage encryption at rest for relational databases.",
+    "resource_type": "aws_db_instance",
+    "framework": "HIPAA",
+    "statute_reference": "HIPAA \u00a7164.312(a)(2)(iv) & PCI-DSS 3.4 & NIST SC-13",
+    "control_ids": [
+      "HIPAA_164_312_a_2_iv",
+      "PCI_DSS_3_4",
+      "NIST_SC_13",
+      "GDPR_Art_32_1_a"
+    ],
+    "requirement_id": "REQ_ENCRYPTION_AT_REST",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "storage_encrypted",
+    "attribute_value": "  storage_encrypted = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "storage_encrypted_true"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_157",
+    "name": "RDS Multi-AZ Deployment",
+    "description": "Ensure RDS databases run in Multi-AZ configuration for disaster recovery and failover.",
+    "resource_type": "aws_db_instance",
+    "framework": "HIPAA",
+    "statute_reference": "HIPAA \u00a7164.308(a)(7)(ii)(B) & GDPR Art. 32(1)(b) & NIST CP-2",
+    "control_ids": [
+      "HIPAA_164_308_a_7_ii_B",
+      "GDPR_Art_32_1_b",
+      "NIST_CP_2"
+    ],
+    "requirement_id": "REQ_BACKUP_AND_RESILIENCE",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "multi_az",
+    "attribute_value": "  multi_az = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "multi_az_true"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_17",
+    "name": "RDS Backup Retention",
+    "description": "Ensure automated database backup retention is set to at least 7 days for recovery.",
+    "resource_type": "aws_db_instance",
+    "framework": "HIPAA",
+    "statute_reference": "HIPAA \u00a7164.308(a)(7)(ii)(A) & GDPR Art. 32(1)(c) & NIST CP-9",
+    "control_ids": [
+      "HIPAA_164_308_a_7_ii_A",
+      "GDPR_Art_32_1_c",
+      "NIST_CP_9"
+    ],
+    "requirement_id": "REQ_BACKUP_AND_RESILIENCE",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "backup_retention_period",
+    "attribute_value": "  backup_retention_period = 7",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "backup_retention_gte_7"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_118",
+    "name": "RDS Enhanced Monitoring",
+    "description": "Enable real-time OS metric tracking and monitoring interval on RDS instances.",
+    "resource_type": "aws_db_instance",
+    "framework": "NIST SP 800-53",
+    "statute_reference": "NIST SP 800-53 AU-6 & PCI-DSS 10.2",
+    "control_ids": [
+      "NIST_AU_6",
+      "PCI_DSS_10_2"
+    ],
+    "requirement_id": "REQ_AUDIT_LOGGING",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "monitoring_interval",
+    "attribute_value": "  monitoring_interval = 60",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "monitoring_interval_positive"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_40",
+    "name": "IAM Least Privilege Wildcard Restriction",
+    "description": "Prohibit full administrative wildcard privileges (*:*) in IAM access policies.",
+    "resource_type": "aws_iam_policy",
+    "framework": "NIST SP 800-53",
+    "statute_reference": "NIST SP 800-53 AC-6 & PCI-DSS 7.1",
+    "control_ids": [
+      "NIST_AC_6",
+      "PCI_DSS_7_1",
+      "PCI_DSS_7_2"
+    ],
+    "requirement_id": "REQ_LEAST_PRIVILEGE",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "policy",
+    "attribute_value": "  # RegRadar: Enforce least-privilege specific action grants",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "disallow_wildcard_admin_actions"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_60",
+    "name": "IAM Password Complexity Policy",
+    "description": "Enforce strong password policy requirements (14+ characters, numbers, uppercase, symbols).",
+    "resource_type": "aws_iam_account_password_policy",
+    "framework": "NIST SP 800-53",
+    "statute_reference": "NIST SP 800-53 IA-5 & PCI-DSS 8.2 & HIPAA \u00a7164.308(a)(5)(ii)(D)",
+    "control_ids": [
+      "NIST_IA_5",
+      "PCI_DSS_8_2",
+      "HIPAA_164_308_a_5_ii_D"
+    ],
+    "requirement_id": "REQ_LEAST_PRIVILEGE",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "minimum_password_length",
+    "attribute_value": "  minimum_password_length        = 14\n  require_symbols                = true\n  require_numbers                = true\n  require_uppercase_characters   = true\n  require_lowercase_characters   = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "length_gte_14",
+      "symbols_required"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_109",
+    "name": "IAM MFA Enforcement",
+    "description": "Require multi-factor authentication condition for privileged administrative access.",
+    "resource_type": "aws_iam_policy",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 8.3 & NIST SP 800-53 IA-2",
+    "control_ids": [
+      "PCI_DSS_8_3",
+      "NIST_IA_2"
+    ],
+    "requirement_id": "REQ_LEAST_PRIVILEGE",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "policy",
+    "attribute_value": "  # RegRadar: Condition aws:MultiFactorAuthPresent = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "require_mfa_condition"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_7",
+    "name": "KMS Key Rotation",
+    "description": "Enforce annual automatic key rotation for customer-managed KMS keys.",
+    "resource_type": "aws_kms_key",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 3.6 & NIST SP 800-53 SC-12 & HIPAA \u00a7164.312(a)(2)(iv)",
+    "control_ids": [
+      "PCI_DSS_3_6",
+      "NIST_SC_12",
+      "HIPAA_164_312_a_2_iv"
+    ],
+    "requirement_id": "REQ_KEY_MANAGEMENT",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "enable_key_rotation",
+    "attribute_value": "  enable_key_rotation = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "enable_key_rotation_true"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_33",
+    "name": "KMS Key Policy Least Privilege",
+    "description": "Prevent wildcard root principal access in KMS customer key policies.",
+    "resource_type": "aws_kms_key",
+    "framework": "NIST SP 800-53",
+    "statute_reference": "NIST SP 800-53 AC-3 & PCI-DSS 7.2",
+    "control_ids": [
+      "NIST_AC_3",
+      "PCI_DSS_7_2"
+    ],
+    "requirement_id": "REQ_KEY_MANAGEMENT",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "policy",
+    "attribute_value": "  # RegRadar: Restrict KMS key policy to specific role principals",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "disallow_wildcard_principal"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_67",
+    "name": "CloudTrail Multi-Region Logging",
+    "description": "Enforce multi-region audit event logging across all active cloud regions.",
+    "resource_type": "aws_cloudtrail",
+    "framework": "NIST SP 800-53",
+    "statute_reference": "NIST SP 800-53 AU-2 / AU-3 & PCI-DSS 10.1 & HIPAA \u00a7164.312(b)",
+    "control_ids": [
+      "NIST_AU_2",
+      "NIST_AU_3",
+      "PCI_DSS_10_1",
+      "HIPAA_164_312_b"
+    ],
+    "requirement_id": "REQ_AUDIT_LOGGING",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "is_multi_region_trail",
+    "attribute_value": "  is_multi_region_trail = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "is_multi_region_trail_true"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_35",
+    "name": "CloudTrail Log File Validation",
+    "description": "Enable digest log file validation to ensure audit logs cannot be modified undetected.",
+    "resource_type": "aws_cloudtrail",
+    "framework": "NIST SP 800-53",
+    "statute_reference": "NIST SP 800-53 AU-9 & PCI-DSS 10.5",
+    "control_ids": [
+      "NIST_AU_9",
+      "PCI_DSS_10_5"
+    ],
+    "requirement_id": "REQ_SYSTEM_INTEGRITY",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "enable_log_file_validation",
+    "attribute_value": "  enable_log_file_validation = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "enable_log_file_validation_true"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_36",
+    "name": "CloudTrail KMS Encryption",
+    "description": "Enforce KMS CMK encryption for all CloudTrail trail log delivery.",
+    "resource_type": "aws_cloudtrail",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 3.4 & NIST SP 800-53 SC-13 & HIPAA \u00a7164.312(a)(2)(iv)",
+    "control_ids": [
+      "PCI_DSS_3_4",
+      "NIST_SC_13",
+      "HIPAA_164_312_a_2_iv"
+    ],
+    "requirement_id": "REQ_ENCRYPTION_AT_REST",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "kms_key_id",
+    "attribute_value": "  kms_key_id = \"aws_kms_key.cloudtrail_key.arn\"",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "kms_key_id_defined"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_24",
+    "name": "Security Group Restrict SSH Port 22",
+    "description": "Prohibit unrestricted inbound SSH traffic (port 22) from the public Internet 0.0.0.0/0.",
+    "resource_type": "aws_security_group",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 1.2 / 1.3 & NIST SP 800-53 AC-4 & HIPAA \u00a7164.312(e)(1)",
+    "control_ids": [
+      "PCI_DSS_1_2",
+      "PCI_DSS_1_3",
+      "NIST_AC_4",
+      "HIPAA_164_312_e_1"
+    ],
+    "requirement_id": "REQ_ZERO_PUBLIC_INGRESS",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "cidr_blocks",
+    "attribute_value": "    cidr_blocks = [\"10.0.0.0/8\"]",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "prohibit_quad_zero_cidr"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_25",
+    "name": "Security Group Restrict RDP Port 3389",
+    "description": "Prohibit unrestricted inbound RDP traffic (port 3389) from the public Internet 0.0.0.0/0.",
+    "resource_type": "aws_security_group",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 1.2 / 1.3 & NIST SP 800-53 AC-4",
+    "control_ids": [
+      "PCI_DSS_1_2",
+      "PCI_DSS_1_3",
+      "NIST_AC_4"
+    ],
+    "requirement_id": "REQ_ZERO_PUBLIC_INGRESS",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "cidr_blocks",
+    "attribute_value": "    cidr_blocks = [\"10.0.0.0/8\"]",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "prohibit_quad_zero_cidr"
+    ]
+  },
+  {
+    "check_id": "CKV_AWS_130",
+    "name": "VPC Flow Logs Enabled",
+    "description": "Enforce VPC Flow Logs to record IP traffic entering and exiting virtual network interfaces.",
+    "resource_type": "aws_vpc",
+    "framework": "NIST SP 800-53",
+    "statute_reference": "NIST SP 800-53 AU-2 & PCI-DSS 10.3 & HIPAA \u00a7164.312(b)",
+    "control_ids": [
+      "NIST_AU_2",
+      "PCI_DSS_10_3",
+      "HIPAA_164_312_b"
+    ],
+    "requirement_id": "REQ_AUDIT_LOGGING",
+    "strategy": "ADDITIVE_ATTACHMENT",
+    "target_attribute": null,
+    "attribute_value": null,
+    "additive_resource_template": "\nresource \"aws_flow_log\" \"{name}_flow_log\" {{\n  iam_role_arn    = \"aws_iam_role.flow_logs.arn\"\n  log_destination = \"aws_cloudwatch_log_group.flow_logs.arn\"\n  traffic_type    = \"ALL\"\n  vpc_id          = {resource_id}.id\n}}\n",
+    "validation_rules": [
+      "traffic_type_all"
+    ]
+  },
+  {
+    "check_id": "CKV_AZURE_3",
+    "name": "Azure Storage Secure Transfer",
+    "description": "Ensure Azure storage accounts enforce HTTPS secure transfer for all incoming requests.",
+    "resource_type": "azurerm_storage_account",
+    "framework": "HIPAA",
+    "statute_reference": "HIPAA \u00a7164.312(e)(1) & PCI-DSS 4.1 & GDPR Art. 32 & NIST SC-8",
+    "control_ids": [
+      "HIPAA_164_312_e_1",
+      "PCI_DSS_4_1",
+      "GDPR_Art_32_1_a",
+      "NIST_SC_8"
+    ],
+    "requirement_id": "REQ_ENCRYPTION_IN_TRANSIT",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "enable_https_traffic_only",
+    "attribute_value": "  enable_https_traffic_only = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "enable_https_traffic_only_true"
+    ]
+  },
+  {
+    "check_id": "CKV_AZURE_33",
+    "name": "Azure Storage Disable Public Blob Access",
+    "description": "Prohibit anonymous public read access to blobs and containers in Azure storage accounts.",
+    "resource_type": "azurerm_storage_account",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 1.3 & NIST SP 800-53 AC-3 & GDPR Art. 32",
+    "control_ids": [
+      "PCI_DSS_1_3",
+      "NIST_AC_3",
+      "GDPR_Art_32_1_b"
+    ],
+    "requirement_id": "REQ_ZERO_PUBLIC_INGRESS",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "allow_nested_items_to_be_public",
+    "attribute_value": "  allow_nested_items_to_be_public = false",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "allow_nested_items_to_be_public_false"
+    ]
+  },
+  {
+    "check_id": "CKV_AZURE_44",
+    "name": "Azure Storage Minimum TLS Version",
+    "description": "Enforce modern TLS 1.2 minimum encryption protocol version for Azure storage accounts.",
+    "resource_type": "azurerm_storage_account",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 4.1 & NIST SP 800-53 SC-8",
+    "control_ids": [
+      "PCI_DSS_4_1",
+      "NIST_SC_8"
+    ],
+    "requirement_id": "REQ_ENCRYPTION_IN_TRANSIT",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "min_tls_version",
+    "attribute_value": "  min_tls_version = \"TLS1_2\"",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "min_tls_version_1_2"
+    ]
+  },
+  {
+    "check_id": "CKV_AZURE_9",
+    "name": "Azure NSG Restrict Public SSH Port 22",
+    "description": "Ensure network security groups block inbound SSH 22 traffic from any Internet IP address (*).",
+    "resource_type": "azurerm_network_security_group",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 1.2 / 1.3 & NIST SP 800-53 AC-4",
+    "control_ids": [
+      "PCI_DSS_1_2",
+      "PCI_DSS_1_3",
+      "NIST_AC_4"
+    ],
+    "requirement_id": "REQ_ZERO_PUBLIC_INGRESS",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "source_address_prefix",
+    "attribute_value": "    source_address_prefix = \"VirtualNetwork\"",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "source_address_prefix_not_star"
+    ]
+  },
+  {
+    "check_id": "CKV_AZURE_10",
+    "name": "Azure NSG Restrict Public RDP Port 3389",
+    "description": "Ensure network security groups block inbound RDP 3389 traffic from any Internet IP address (*).",
+    "resource_type": "azurerm_network_security_group",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 1.2 / 1.3 & NIST SP 800-53 AC-4",
+    "control_ids": [
+      "PCI_DSS_1_2",
+      "PCI_DSS_1_3",
+      "NIST_AC_4"
+    ],
+    "requirement_id": "REQ_ZERO_PUBLIC_INGRESS",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "source_address_prefix",
+    "attribute_value": "    source_address_prefix = \"VirtualNetwork\"",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "source_address_prefix_not_star"
+    ]
+  },
+  {
+    "check_id": "CKV_GCP_2",
+    "name": "GCP Firewall Restrict Public SSH Port 22",
+    "description": "Ensure Google Cloud firewall rules do not allow unrestricted public ingress to SSH port 22.",
+    "resource_type": "google_compute_firewall",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 1.2 / 1.3 & NIST SP 800-53 AC-4",
+    "control_ids": [
+      "PCI_DSS_1_2",
+      "PCI_DSS_1_3",
+      "NIST_AC_4"
+    ],
+    "requirement_id": "REQ_ZERO_PUBLIC_INGRESS",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "source_ranges",
+    "attribute_value": "  source_ranges = [\"10.0.0.0/8\"]",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "source_ranges_not_0000"
+    ]
+  },
+  {
+    "check_id": "CKV_GCP_29",
+    "name": "GCP Storage Bucket Uniform Bucket-Level Access",
+    "description": "Ensure Google Cloud Storage buckets enforce uniform bucket-level access.",
+    "resource_type": "google_storage_bucket",
+    "framework": "PCI-DSS",
+    "statute_reference": "PCI-DSS 1.3 & NIST SP 800-53 AC-3 & GDPR Art. 32",
+    "control_ids": [
+      "PCI_DSS_1_3",
+      "NIST_AC_3",
+      "GDPR_Art_32_1_b"
+    ],
+    "requirement_id": "REQ_ZERO_PUBLIC_INGRESS",
+    "strategy": "IN_PLACE_ATTRIBUTE",
+    "target_attribute": "uniform_bucket_level_access",
+    "attribute_value": "  uniform_bucket_level_access = true",
+    "additive_resource_template": null,
+    "validation_rules": [
+      "uniform_bucket_level_access_true"
+    ]
+  }
+]

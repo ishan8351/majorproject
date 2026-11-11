@@ -8,6 +8,12 @@ from regradar.remediation.models import (
     PatchProposal,
     SwarmExecutionResult,
 )
+from regradar.remediation.state_machine import (
+    RemediationContext,
+    RemediationState,
+    StateTransition,
+    SwarmStateMachine,
+)
 from regradar.remediation.scanner import CheckovScanner
 from regradar.remediation.knowledge_base import RegulatoryKnowledgeBase
 from regradar.remediation.agents import (
@@ -23,6 +29,10 @@ __all__ = [
     "RemediationAction",
     "PatchProposal",
     "SwarmExecutionResult",
+    "RemediationContext",
+    "RemediationState",
+    "StateTransition",
+    "SwarmStateMachine",
     "CheckovScanner",
     "RegulatoryKnowledgeBase",
     "AuditorAgent",

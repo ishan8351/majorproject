@@ -1,7 +1,10 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, TYPE_CHECKING
 import networkx as nx
 
 from regradar.models import CentralityMetrics, GraphSummary, RiskTier
+
+if TYPE_CHECKING:
+    from regradar.config import CentralityConfig
 
 
 class CentralityEngine:
@@ -10,20 +13,32 @@ class CentralityEngine:
     gate for autonomous IaC compliance remediation.
     """
 
-    def __init__(self, graph: nx.DiGraph):
+    def __init__(self, graph: nx.DiGraph, config: Optional["CentralityConfig"] = None):
         self.graph = graph
         self.num_nodes = graph.number_of_nodes()
+        if config is None:
+            from regradar.config import get_config
+            self.config = get_config().centrality
+        else:
+            self.config = config
 
     def evaluate(self) -> Dict[str, CentralityMetrics]:
         """
-        Calculates Betweenness Centrality, Degree Centrality, and Cascading Descendant Ratio
-        to assign a deterministic Blast-Radius Risk Tier to every resource.
+        Calculates Betweenness Centrality, Degree Centrality, Eigenvector Centrality,
+        PageRank, and Cascading Descendant Ratio to assign a deterministic Blast-Radius
+        Risk Tier to every resource.
         """
         if self.num_nodes == 0:
             return {}
 
         # 1. Betweenness Centrality (bridges between resources)
         betweenness = nx.betweenness_centrality(self.graph)
+
+        # 2. Eigenvector Centrality (influence on influential resources)
+        eigenvector = self._compute_eigenvector()
+
+        # 3. PageRank Centrality (link-based prestige / importance)
+        pagerank = self._compute_pagerank()
 
         metrics: Dict[str, CentralityMetrics] = {}
         denom = max(1, self.num_nodes - 1)
@@ -45,17 +60,32 @@ class CentralityEngine:
             desc_ratio = desc_count / denom
             out_ratio = out_deg / denom
             b_score = betweenness.get(node_id, 0.0)
+            e_score = eigenvector.get(node_id, 0.0)
+            pr_score = pagerank.get(node_id, 0.0)
 
             # Composite Blast Radius Risk Score (0.0 to 1.0)
-            # 50% Cascading Descendants, 30% Betweenness, 20% Direct Fan-out
-            composite_score = (0.50 * desc_ratio) + (0.30 * b_score) + (0.20 * out_ratio)
+            # Composite Score S(v) = w_desc * desc_ratio + w_b * betweenness + w_e * eigenvector + w_out * out_ratio
+            w = self.config.weights
+            t = self.config.thresholds
+
+            composite_score = (
+                (w.descendant_ratio * desc_ratio)
+                + (w.betweenness * b_score)
+                + (w.eigenvector * e_score)
+                + (w.out_degree_ratio * out_ratio)
+            )
             composite_score = round(min(1.0, max(0.0, composite_score)), 4)
 
             # Determine Risk Tier and Remediation Policy
-            if composite_score >= 0.40 or desc_ratio >= 0.35:
+            # If a node is completely disconnected (isolated), it poses zero cascading blast radius
+            if in_deg == 0 and out_deg == 0:
+                composite_score = 0.0
+                risk_tier = RiskTier.LEAF_SAFE
+                auto_remediate = True
+            elif composite_score >= t.critical_root_score or desc_ratio >= t.critical_root_descendant_ratio:
                 risk_tier = RiskTier.CRITICAL_ROOT
                 auto_remediate = False
-            elif composite_score >= 0.15 or desc_count > 0:
+            elif composite_score >= t.intermediate_score or desc_count > 0:
                 risk_tier = RiskTier.INTERMEDIATE
                 auto_remediate = True
             else:
@@ -73,9 +103,60 @@ class CentralityEngine:
                 blast_radius_score=composite_score,
                 risk_tier=risk_tier,
                 auto_remediate=auto_remediate,
+                eigenvector=round(e_score, 4),
+                pagerank=round(pr_score, 4),
             )
 
         return metrics
+
+    def _compute_eigenvector(self) -> Dict[str, float]:
+        """
+        Computes eigenvector centrality with robust fallback:
+        Tries nx.eigenvector_centrality_numpy, then falls back to nx.eigenvector_centrality
+        with max_iter=2000 and tol=1e-06.
+        """
+        if self.num_nodes == 0:
+            return {}
+        try:
+            return nx.eigenvector_centrality_numpy(self.graph)
+        except (ModuleNotFoundError, ImportError, AttributeError, Exception):
+            pass
+
+        try:
+            return nx.eigenvector_centrality(
+                self.graph,
+                max_iter=self.config.solver.max_iter,
+                tol=self.config.solver.tol,
+            )
+        except Exception:
+            try:
+                return nx.in_degree_centrality(self.graph)
+            except Exception:
+                return {n: 0.0 for n in self.graph.nodes}
+
+    def _compute_pagerank(self) -> Dict[str, float]:
+        """
+        Computes PageRank centrality with robust fallback:
+        Tries nx.pagerank(self.graph), then falls back to pure-Python pagerank.
+        """
+        if self.num_nodes == 0:
+            return {}
+        try:
+            return nx.pagerank(self.graph)
+        except (ModuleNotFoundError, ImportError, AttributeError):
+            try:
+                from networkx.algorithms.link_analysis.pagerank_alg import _pagerank_python
+                return _pagerank_python(self.graph)
+            except Exception:
+                n = self.num_nodes
+                return {node: 1.0 / n for node in self.graph.nodes}
+        except Exception:
+            try:
+                from networkx.algorithms.link_analysis.pagerank_alg import _pagerank_python
+                return _pagerank_python(self.graph)
+            except Exception:
+                n = self.num_nodes
+                return {node: 1.0 / n for node in self.graph.nodes}
 
     def get_summary(self) -> GraphSummary:
         """Generates a complete graph summary report."""

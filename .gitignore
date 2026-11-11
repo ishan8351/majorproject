@@ -48,6 +48,11 @@ coverage.xml
 *.tfstate
 *.tfstate.*
 crash.log
+_regradar_*.tf
+.regradar_staged_prs.json
+benchmark_*.csv
+benchmark_*.md
+benchmark_*.tex
 crash.*.log
 *.tfvars
 *.tfvars.json

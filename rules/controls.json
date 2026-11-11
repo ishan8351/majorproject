@@ -1,0 +1,306 @@
+[
+  {
+    "id": "HIPAA_164_312_a_2_iv",
+    "control_id": "\u00a7164.312(a)(2)(iv)",
+    "standard_id": "HIPAA",
+    "title": "Encryption and Decryption",
+    "description": "Implement a mechanism to encrypt and decrypt electronic protected health information (ePHI) at rest and in storage.",
+    "family": "Technical Safeguards"
+  },
+  {
+    "id": "HIPAA_164_308_a_7_ii_A",
+    "control_id": "\u00a7164.308(a)(7)(ii)(A)",
+    "standard_id": "HIPAA",
+    "title": "Data Backup Plan",
+    "description": "Establish and implement procedures to create and maintain retrievable exact copies of electronic protected health information.",
+    "family": "Administrative Safeguards"
+  },
+  {
+    "id": "HIPAA_164_308_a_7_ii_B",
+    "control_id": "\u00a7164.308(a)(7)(ii)(B)",
+    "standard_id": "HIPAA",
+    "title": "Disaster Recovery Plan",
+    "description": "Establish and implement procedures to restore any loss of data in the event of an emergency or system disruption.",
+    "family": "Administrative Safeguards"
+  },
+  {
+    "id": "HIPAA_164_312_b",
+    "control_id": "\u00a7164.312(b)",
+    "standard_id": "HIPAA",
+    "title": "Audit Controls",
+    "description": "Implement hardware, software, and procedural mechanisms that record and examine activity in information systems containing ePHI.",
+    "family": "Technical Safeguards"
+  },
+  {
+    "id": "HIPAA_164_312_e_1",
+    "control_id": "\u00a7164.312(e)(1)",
+    "standard_id": "HIPAA",
+    "title": "Transmission Security",
+    "description": "Implement technical security measures to guard against unauthorized access to ePHI transmitted over electronic communications networks.",
+    "family": "Technical Safeguards"
+  },
+  {
+    "id": "HIPAA_164_308_a_5_ii_D",
+    "control_id": "\u00a7164.308(a)(5)(ii)(D)",
+    "standard_id": "HIPAA",
+    "title": "Password Management",
+    "description": "Implement procedures for creating, changing, and safeguarding authenticators and passwords.",
+    "family": "Administrative Safeguards"
+  },
+  {
+    "id": "GDPR_Art_32_1_a",
+    "control_id": "Art. 32(1)(a)",
+    "standard_id": "GDPR",
+    "title": "Pseudonymisation and Encryption of Personal Data",
+    "description": "Implement appropriate technical measures including pseudonymisation and encryption to ensure security appropriate to the risk.",
+    "family": "Security of Processing"
+  },
+  {
+    "id": "GDPR_Art_32_1_b",
+    "control_id": "Art. 32(1)(b)",
+    "standard_id": "GDPR",
+    "title": "Confidentiality, Integrity, and Resilience",
+    "description": "Ensure the ongoing confidentiality, integrity, availability, and resilience of processing systems and services.",
+    "family": "Security of Processing"
+  },
+  {
+    "id": "GDPR_Art_32_1_c",
+    "control_id": "Art. 32(1)(c)",
+    "standard_id": "GDPR",
+    "title": "Restoration of Availability and Access",
+    "description": "Ensure the ability to restore the availability and access to personal data in a timely manner in the event of an incident.",
+    "family": "Security of Processing"
+  },
+  {
+    "id": "GDPR_Art_25",
+    "control_id": "Art. 25",
+    "standard_id": "GDPR",
+    "title": "Data Protection by Design and Default",
+    "description": "Implement appropriate technical and organizational measures designed to implement data-protection principles effectively.",
+    "family": "Principles"
+  },
+  {
+    "id": "NIST_AC_3",
+    "control_id": "AC-3",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Access Enforcement",
+    "description": "Enforce approved authorizations for logical access to information and system resources in accordance with applicable access control policies.",
+    "family": "Access Control"
+  },
+  {
+    "id": "NIST_AC_4",
+    "control_id": "AC-4",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Information Flow Enforcement",
+    "description": "Enforce approved authorizations for controlling the flow of information within the system and between interconnected systems.",
+    "family": "Access Control"
+  },
+  {
+    "id": "NIST_AC_6",
+    "control_id": "AC-6",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Least Privilege",
+    "description": "Employ the principle of least privilege, allowing only authorized accesses for users and processes necessary to accomplish assigned tasks.",
+    "family": "Access Control"
+  },
+  {
+    "id": "NIST_AU_2",
+    "control_id": "AU-2",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Event Logging",
+    "description": "Identify and record events on the system that are significant and relevant to the security of information.",
+    "family": "Audit and Accountability"
+  },
+  {
+    "id": "NIST_AU_3",
+    "control_id": "AU-3",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Content of Audit Records",
+    "description": "Ensure audit records contain information establishing what type of event occurred, when, where, the source, and outcome.",
+    "family": "Audit and Accountability"
+  },
+  {
+    "id": "NIST_AU_6",
+    "control_id": "AU-6",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Audit Record Review, Analysis, and Reporting",
+    "description": "Review and analyze system audit records for indications of unusual or suspicious activity and report findings.",
+    "family": "Audit and Accountability"
+  },
+  {
+    "id": "NIST_AU_9",
+    "control_id": "AU-9",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Protection of Audit Information",
+    "description": "Protect audit information and audit tools from unauthorized access, modification, and deletion.",
+    "family": "Audit and Accountability"
+  },
+  {
+    "id": "NIST_CP_2",
+    "control_id": "CP-2",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Contingency Plan",
+    "description": "Develop, review, and maintain a contingency plan addressing system restoration without compromising security.",
+    "family": "Contingency Planning"
+  },
+  {
+    "id": "NIST_CP_9",
+    "control_id": "CP-9",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Information System Backup",
+    "description": "Conduct backups of user-level and system-level information including security-related documentation.",
+    "family": "Contingency Planning"
+  },
+  {
+    "id": "NIST_IA_2",
+    "control_id": "IA-2",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Identification and Authentication",
+    "description": "Uniquely identify and authenticate organizational users and processes acting on behalf of organizational users.",
+    "family": "Identification and Authentication"
+  },
+  {
+    "id": "NIST_IA_5",
+    "control_id": "IA-5",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Authenticator Management",
+    "description": "Manage system authenticators including passwords, tokens, certificates, and biometrics with strict complexity.",
+    "family": "Identification and Authentication"
+  },
+  {
+    "id": "NIST_SC_8",
+    "control_id": "SC-8",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Transmission Confidentiality and Integrity",
+    "description": "Protect the confidentiality and integrity of transmitted information using cryptographic mechanisms.",
+    "family": "System and Communications Protection"
+  },
+  {
+    "id": "NIST_SC_12",
+    "control_id": "SC-12",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Cryptographic Key Establishment and Management",
+    "description": "Establish and manage cryptographic keys when cryptography is required and employed within the system.",
+    "family": "System and Communications Protection"
+  },
+  {
+    "id": "NIST_SC_13",
+    "control_id": "SC-13",
+    "standard_id": "NIST_SP_800_53",
+    "title": "Cryptographic Protection",
+    "description": "Employ cryptographic modules in accordance with applicable federal laws, policies, and directives.",
+    "family": "System and Communications Protection"
+  },
+  {
+    "id": "PCI_DSS_1_2",
+    "control_id": "Req 1.2",
+    "standard_id": "PCI_DSS",
+    "title": "Network Security Controls Configuration",
+    "description": "Build and maintain secure network configurations to restrict inbound and outbound traffic.",
+    "family": "Network Security"
+  },
+  {
+    "id": "PCI_DSS_1_3",
+    "control_id": "Req 1.3",
+    "standard_id": "PCI_DSS",
+    "title": "Restricted Public Access",
+    "description": "Prohibit direct public internet access between the internet and any system component in the cardholder data environment.",
+    "family": "Network Security"
+  },
+  {
+    "id": "PCI_DSS_3_4",
+    "control_id": "Req 3.4",
+    "standard_id": "PCI_DSS",
+    "title": "Protect Cardholder Data with Strong Cryptography",
+    "description": "Render primary account numbers (PAN) unreadable anywhere they are stored using strong cryptographic algorithms.",
+    "family": "Cardholder Data Protection"
+  },
+  {
+    "id": "PCI_DSS_3_5",
+    "control_id": "Req 3.5",
+    "standard_id": "PCI_DSS",
+    "title": "Cryptographic Key Protection",
+    "description": "Protect cryptographic keys used to encrypt cardholder data against disclosure and misuse.",
+    "family": "Cardholder Data Protection"
+  },
+  {
+    "id": "PCI_DSS_3_6",
+    "control_id": "Req 3.6",
+    "standard_id": "PCI_DSS",
+    "title": "Cryptographic Key Management",
+    "description": "Fully document and implement all key management processes and procedures for cryptographic keys used for PAN encryption.",
+    "family": "Cardholder Data Protection"
+  },
+  {
+    "id": "PCI_DSS_4_1",
+    "control_id": "Req 4.1",
+    "standard_id": "PCI_DSS",
+    "title": "Safeguard PAN During Transmission",
+    "description": "Use strong cryptography and security protocols to safeguard sensitive cardholder data during transmission over open networks.",
+    "family": "Cardholder Data Protection"
+  },
+  {
+    "id": "PCI_DSS_7_1",
+    "control_id": "Req 7.1",
+    "standard_id": "PCI_DSS",
+    "title": "Access Limitation to Need-to-Know",
+    "description": "Limit access to system components and cardholder data to only those individuals whose jobs require such access.",
+    "family": "Access Control"
+  },
+  {
+    "id": "PCI_DSS_7_2",
+    "control_id": "Req 7.2",
+    "standard_id": "PCI_DSS",
+    "title": "Establish Access Control Systems",
+    "description": "Establish an access control system for system components that restricts access based on user need-to-know.",
+    "family": "Access Control"
+  },
+  {
+    "id": "PCI_DSS_8_2",
+    "control_id": "Req 8.2",
+    "standard_id": "PCI_DSS",
+    "title": "Strong Authenticator Management",
+    "description": "Ensure user identification and authentication management enforces complex passwords and credential lifecycle policies.",
+    "family": "Identification and Authentication"
+  },
+  {
+    "id": "PCI_DSS_8_3",
+    "control_id": "Req 8.3",
+    "standard_id": "PCI_DSS",
+    "title": "Multi-Factor Authentication (MFA)",
+    "description": "Mandate and enforce multi-factor authentication for all access into the cardholder data environment.",
+    "family": "Identification and Authentication"
+  },
+  {
+    "id": "PCI_DSS_10_1",
+    "control_id": "Req 10.1",
+    "standard_id": "PCI_DSS",
+    "title": "Audit Trail Logging",
+    "description": "Implement audit trails to link all access to system components to each individual user.",
+    "family": "Audit and Monitoring"
+  },
+  {
+    "id": "PCI_DSS_10_2",
+    "control_id": "Req 10.2",
+    "standard_id": "PCI_DSS",
+    "title": "Automated Privileged Audit Trails",
+    "description": "Implement automated audit trails for all system components to reconstruct events including privileged user actions.",
+    "family": "Audit and Monitoring"
+  },
+  {
+    "id": "PCI_DSS_10_3",
+    "control_id": "Req 10.3",
+    "standard_id": "PCI_DSS",
+    "title": "Audit Trail Content",
+    "description": "Record user identification, type of event, date and time, success/failure indication, and identity of affected data.",
+    "family": "Audit and Monitoring"
+  },
+  {
+    "id": "PCI_DSS_10_5",
+    "control_id": "Req 10.5",
+    "standard_id": "PCI_DSS",
+    "title": "Secure Audit Trails",
+    "description": "Secure audit trails so that they cannot be altered or deleted.",
+    "family": "Audit and Monitoring"
+  }
+]

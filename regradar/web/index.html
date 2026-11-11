@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RegRadar | Autonomous Zero-Destruction IaC Governance Studio</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Cytoscape.js & Dagre for Graph Visualization -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
+  <!-- Custom Style & Enterprise Palettes -->
+  <link rel="stylesheet" href="/css/theme.css?v=2026.1">
+  <link rel="stylesheet" href="/css/style.css?v=2026.1">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              850: '#151f32',
+              900: '#0f172a',
+              950: '#080d1a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+
+  <!-- TOP HEADER NAVBAR -->
+  <header class="h-14 border-b border-slate-800 bg-slate-900/90 backdrop-blur px-4 flex items-center justify-between shrink-0 z-20">
+    <!-- Brand -->
+    <div class="flex items-center space-x-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/20">
+        R
+      </div>
+      <div>
+        <div class="font-bold text-sm tracking-wide flex items-center space-x-2">
+          <span>RegRadar</span>
+          <span class="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">Studio</span>
+        </div>
+        <div class="text-[10px] text-slate-400 font-medium">Autonomous Zero-Destruction IaC Governance</div>
+      </div>
+    </div>
+
+    <!-- Center: Workspace Selector -->
+    <div class="flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/80">
+      <span class="text-xs text-slate-400 font-medium">Target:</span>
+      <select id="workspaceSelector" class="bg-transparent text-xs text-slate-200 font-medium focus:outline-none cursor-pointer">
+        <!-- Populated via API -->
+      </select>
+    </div>
+
+    <!-- Right: LLM Provider, Settings & Theme Segmented Picker -->
+    <div class="flex items-center space-x-3">
+      <!-- LLM Provider & Active Frontier Model Button -->
+      <button class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 transition cursor-pointer text-left group" id="openSettingsBtn" title="Click to configure Frontier AI Models & Agent Backend">
+        <svg class="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04z"/></svg>
+        <div class="flex flex-col">
+          <div class="flex items-center space-x-1.5">
+            <span class="text-[9px] uppercase font-bold tracking-wider text-slate-400">Frontier AI Engine:</span>
+            <span id="providerHeaderTag" class="text-[9px] font-bold uppercase px-1 rounded bg-cyan-500/20 text-cyan-300"></span>
+          </div>
+          <span id="providerBadge" class="text-xs font-semibold text-slate-200">
+            Loading...
+          </span>
+        </div>
+        <svg class="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+
+      <!-- Health Pill -->
+      <div class="flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>Online</span>
+      </div>
+
+      <!-- 4-Theme Segmented Control Switcher -->
+      <div class="theme-segmented-group" id="themePicker" title="Curated Theme Palettes">
+        <button class="theme-pill-btn active" data-theme-val="obsidian" title="Obsidian Cyberspace (Dark)">
+          <span class="theme-pill-dot bg-[#00e5ff]"></span>
+          <span>Obsidian</span>
+        </button>
+        <button class="theme-pill-btn" data-theme-val="midnight" title="Midnight Slate & Emerald (Dark)">
+          <span class="theme-pill-dot bg-[#10b981]"></span>
+          <span>Midnight</span>
+        </button>
+        <button class="theme-pill-btn" data-theme-val="polar" title="Polar Ice & Sapphire (Light)">
+          <span class="theme-pill-dot bg-[#0284c7]"></span>
+          <span>Polar</span>
+        </button>
+        <button class="theme-pill-btn" data-theme-val="alabaster" title="Warm Alabaster & Forest (Light)">
+          <span class="theme-pill-dot bg-[#0d9488]"></span>
+          <span>Alabaster</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN BODY LAYOUT -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- LEFT SIDEBAR NAVIGATION -->
+    <aside class="w-64 border-r border-slate-800 bg-slate-900/60 p-3 flex flex-col justify-between shrink-0">
+      <div class="space-y-1">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-3 py-2">Governance Engine</div>
+
+        <button data-tab="topology" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium border transition text-left">
+          <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <span>Topology & Blast DAG</span>
+        </button>
+
+        <button data-tab="compliance" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium border transition text-left">
+          <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+          <span>Compliance & GraphRAG</span>
+        </button>
+
+        <button data-tab="review" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium border transition text-left">
+          <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          <span>Operator Review Console</span>
+        </button>
+
+        <button data-tab="swarm" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium border transition text-left">
+          <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+          <span>Multi-Agent Swarm</span>
+        </button>
+
+        <button data-tab="sandbox" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium border transition text-left">
+          <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Sandbox & Invariants</span>
+        </button>
+
+        <button data-tab="benchmark" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium border transition text-left">
+          <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span>Empirical Benchmarks</span>
+        </button>
+
+        <div class="pt-3 pb-1">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-3 py-1">Enterprise Automation</div>
+        </div>
+
+        <button data-tab="github" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium border transition text-left">
+          <div class="flex items-center space-x-3">
+            <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+            <span>GitHub CI/CD & Gate</span>
+          </div>
+          <span id="githubNavBadge" class="hidden px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40"></span>
+        </button>
+      </div>
+
+      <!-- System Telemetry Footer -->
+      <div class="p-3 rounded-lg bg-slate-800/40 border border-slate-800 text-[11px] text-slate-400 space-y-1 font-mono">
+        <div>Python 3.14 • OpenTofu 1.8</div>
+        <div class="text-cyan-400">Zero-Destruction Invariant</div>
+      </div>
+    </aside>
+
+    <!-- MAIN VIEW AREA -->
+    <main class="flex-1 overflow-y-auto relative bg-slate-950">
+
+      <!-- ==================== VIEW 1: TOPOLOGY & DAG ==================== -->
+      <div id="view-topology" class="view-container h-full flex flex-col">
+        <!-- Top Action Bar -->
+        <div class="h-12 border-b border-slate-800 px-4 flex items-center justify-between shrink-0 bg-slate-900/40">
+          <div class="flex items-center space-x-4">
+            <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Dependency DAG</span>
+            <span class="text-xs text-slate-400">Resources: <strong id="summaryResourceCount" class="text-white">0</strong></span>
+            <span class="text-xs text-slate-400">Dependencies: <strong id="summaryDependencyCount" class="text-white">0</strong></span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="window.TopologyModule.exportGraph('mermaid')" class="px-2.5 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium">Export Mermaid</button>
+            <button onclick="window.TopologyModule.exportGraph('dot')" class="px-2.5 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium">Export DOT</button>
+            <button onclick="window.TopologyModule.exportGraph('json')" class="px-2.5 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium">Export JSON</button>
+          </div>
+        </div>
+
+        <!-- Canvas and Inspector -->
+        <div class="flex-1 relative overflow-hidden" id="cyContainer">
+          <div id="cy"></div>
+
+          <!-- Loading Overlay -->
+          <div id="topologyLoader" class="absolute inset-0 bg-slate-950/70 flex items-center justify-center z-10 hidden">
+            <div class="text-xs font-mono text-cyan-400 flex items-center space-x-2">
+              <svg class="w-4 h-4 animate-spin text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <span>Building Abstract Syntax Tree & Centrality DAG...</span>
+            </div>
+          </div>
+
+          <!-- Node Detail Inspector Drawer -->
+          <div id="nodeInspector" class="absolute right-4 top-4 w-80 bg-slate-900/95 backdrop-blur-md rounded-xl border border-slate-800 shadow-2xl p-4 z-10 hidden">
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <div id="inspectNodeId" class="font-mono text-xs font-bold text-white break-all"></div>
+                <div id="inspectNodeType" class="font-mono text-[10px] text-slate-400 mt-0.5"></div>
+              </div>
+              <button onclick="window.TopologyModule.hideNodeInspector()" class="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <div class="mb-4">
+              <span id="inspectNodeRisk" class="px-2 py-0.5 rounded text-xs font-bold"></span>
+            </div>
+
+            <div class="space-y-2 text-xs">
+              <div class="flex justify-between py-1 border-b border-slate-800">
+                <span class="text-slate-400">Cascading Descendants:</span>
+                <span id="inspectDescendants" class="font-bold text-slate-200"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-800">
+                <span class="text-slate-400">Upstream Ancestors:</span>
+                <span id="inspectAncestors" class="font-bold text-slate-200"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-800">
+                <span class="text-slate-400">Betweenness Centrality:</span>
+                <span id="inspectBetweenness" class="font-mono text-slate-200"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-800">
+                <span class="text-slate-400">Eigenvector Centrality:</span>
+                <span id="inspectEigenvector" class="font-mono text-slate-200"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-800">
+                <span class="text-slate-400">PageRank:</span>
+                <span id="inspectPageRank" class="font-mono text-slate-200"></span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-800">
+                <span class="text-slate-400 font-semibold">Composite Blast Risk:</span>
+                <span id="inspectBlastScore" class="font-mono font-bold text-cyan-400"></span>
+              </div>
+              <div class="flex justify-between py-1">
+                <span class="text-slate-400">Automated Remediation:</span>
+                <span id="inspectAutoRemediate"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 2: COMPLIANCE & GRAPHRAG ==================== -->
+      <div id="view-compliance" class="view-container p-6 space-y-6 hidden">
+        <!-- Stats Row -->
+        <div class="grid grid-cols-5 gap-4">
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">Total Misconfigurations</div>
+            <div id="statTotalViolations" class="text-2xl font-bold text-white mt-1">0</div>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">HIPAA Controls</div>
+            <div id="statHipaaCount" class="text-2xl font-bold text-cyan-400 mt-1">0</div>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">GDPR Art. 32</div>
+            <div id="statGdprCount" class="text-2xl font-bold text-blue-400 mt-1">0</div>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">NIST SP 800-53</div>
+            <div id="statNistCount" class="text-2xl font-bold text-purple-400 mt-1">0</div>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">PCI-DSS</div>
+            <div id="statPciCount" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+          </div>
+        </div>
+
+        <!-- GraphRAG Query Box -->
+        <div class="p-4 rounded-xl bg-gradient-to-r from-slate-900 to-slate-900/60 border border-slate-800">
+          <div class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>GraphRAG Ontological Statutory Retrieval</span>
+          </div>
+          <div class="flex space-x-2">
+            <input type="text" id="ragSearchInput" placeholder="Ask regulatory mandate (e.g., 'Enforce S3 encryption at rest with AES256')..." class="flex-1 bg-slate-950 border border-slate-700 px-3 py-2 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-500 font-medium">
+            <button onclick="window.ComplianceModule.executeGraphRagSearch()" class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition">Search Knowledge Graph</button>
+          </div>
+          <div id="ragSearchResults" class="mt-3"></div>
+        </div>
+
+        <!-- Table Filters & Search -->
+        <div class="flex items-center justify-between">
+          <input type="text" id="complianceSearchInput" oninput="window.ComplianceModule.filterTable()" placeholder="Search violations, rules, or resources..." class="w-80 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs text-slate-200 focus:outline-none">
+          <select id="complianceFrameworkFilter" onchange="window.ComplianceModule.filterTable()" class="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs text-slate-200 focus:outline-none">
+            <option value="all">All Statutory Frameworks</option>
+            <option value="HIPAA">HIPAA</option>
+            <option value="GDPR">GDPR</option>
+            <option value="NIST">NIST SP 800-53</option>
+            <option value="PCI">PCI-DSS</option>
+          </select>
+        </div>
+
+        <!-- Violations Table -->
+        <div class="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/40">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-900 border-b border-slate-800 text-slate-400 font-semibold">
+                <th class="py-3 px-4">Compliance Check ID</th>
+                <th class="py-3 px-4">Resource Identifier</th>
+                <th class="py-3 px-4">Frameworks</th>
+                <th class="py-3 px-4">File Path</th>
+                <th class="py-3 px-4 text-right">Grounding</th>
+              </tr>
+            </thead>
+            <tbody id="complianceTableBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Statutory Grounding Drawer -->
+        <div id="groundingDrawer" class="fixed right-0 top-0 bottom-0 w-96 bg-slate-900/95 backdrop-blur-xl border-l border-slate-800 p-6 shadow-2xl z-30 hidden overflow-y-auto">
+          <div class="flex justify-between items-center pb-4 border-b border-slate-800 mb-4">
+            <div class="text-sm font-bold text-white">Statutory Regulatory Grounding</div>
+            <button onclick="window.ComplianceModule.closeGroundingDrawer()" class="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="space-y-3">
+            <div>
+              <div id="groundingCheckId" class="font-mono text-cyan-400 font-bold text-sm"></div>
+              <div id="groundingCheckName" class="text-xs text-slate-300 mt-1"></div>
+            </div>
+            <div class="text-xs text-slate-400">Target Resource: <strong id="groundingResource" class="text-slate-200 font-mono"></strong></div>
+            <div id="groundingPathContent" class="mt-4 space-y-3"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 3: OPERATOR REVIEW QUEUE ==================== -->
+      <div id="view-review" class="view-container p-6 space-y-6 hidden">
+        <!-- Review Metrics Header -->
+        <div class="grid grid-cols-3 gap-4">
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center">
+            <div>
+              <div class="text-[11px] font-bold uppercase text-slate-500">Auto-Staged (LEAF_SAFE)</div>
+              <div id="reviewAutoCount" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+            </div>
+            <svg class="w-6 h-6 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center">
+            <div>
+              <div class="text-[11px] font-bold uppercase text-slate-500">Pending Operator Sign-Off</div>
+              <div id="reviewPendingCount" class="text-2xl font-bold text-rose-400 mt-1">0</div>
+            </div>
+            <svg class="w-6 h-6 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center">
+            <div>
+              <div class="text-[11px] font-bold uppercase text-slate-500">Total Staged Items</div>
+              <div id="reviewTotalCount" class="text-2xl font-bold text-white mt-1">0</div>
+            </div>
+            <svg class="w-6 h-6 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+        </div>
+
+        <!-- Review Workspace Split (Queue List & Diff Viewer) -->
+        <div class="grid grid-cols-12 gap-6 h-[calc(100vh-250px)]">
+          <!-- Left: Staged Items Queue -->
+          <div class="col-span-4 border border-slate-800 rounded-xl bg-slate-900/60 p-3 overflow-y-auto flex flex-col">
+            <div class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2 px-1">Review Queue</div>
+            <div id="reviewQueueList" class="flex-1 overflow-y-auto">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <!-- Right: Diff Inspector & Decision Panel -->
+          <div id="reviewDetailContainer" class="col-span-8 border border-slate-800 rounded-xl bg-slate-900 p-5 flex flex-col overflow-hidden">
+            <!-- Warning / Info Banner -->
+            <div id="reviewRiskBanner"></div>
+
+            <!-- Header Info -->
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 id="reviewActiveResourceId" class="text-sm font-mono font-bold text-white"></h3>
+                <div id="reviewActiveCheck" class="text-xs text-slate-400 mt-0.5"></div>
+              </div>
+              <div class="text-right flex flex-col items-end space-y-1">
+                <div class="flex items-center space-x-1.5">
+                  <span id="reviewActiveStrategy" class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30"></span>
+                  <span id="reviewActiveModelTag" class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-mono"></span>
+                </div>
+                <div id="reviewActiveStatute" class="text-[10px] text-slate-500"></div>
+              </div>
+            </div>
+
+            <!-- Code Diff View -->
+            <div class="flex-1 grid grid-cols-2 gap-4 overflow-hidden mb-4">
+              <div class="border border-slate-800 rounded-lg bg-slate-950 p-3 flex flex-col overflow-hidden">
+                <div class="text-[10px] font-bold uppercase text-slate-500 mb-1">Original Configuration</div>
+                <pre id="diffOriginalCode" class="flex-1 overflow-auto text-xs font-mono text-slate-300"></pre>
+              </div>
+              <div class="border border-slate-800 rounded-lg bg-slate-950 p-3 flex flex-col overflow-hidden">
+                <div class="text-[10px] font-bold uppercase text-emerald-500 mb-1">Synthesized Zero-Destruction Patch</div>
+                <pre id="diffModifiedCode" class="flex-1 overflow-auto text-xs font-mono text-emerald-300"></pre>
+              </div>
+            </div>
+
+            <!-- Actions Bar -->
+            <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+              <label class="flex items-center space-x-2 text-xs text-slate-400 cursor-pointer">
+                <input type="checkbox" id="reviewApplyToggle" class="rounded bg-slate-800 border-slate-700 text-cyan-500 focus:ring-0">
+                <span>Persist approved patch to disk (Apply mode)</span>
+              </label>
+              <div class="flex space-x-2">
+                <button onclick="window.ReviewModule.submitDecision('SKIP')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">Skip</button>
+                <button onclick="window.ReviewModule.submitDecision('REJECT')" class="px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-semibold">Reject</button>
+                <button onclick="window.ReviewModule.submitDecision('APPROVE')" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Approve & Apply</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 4: MULTI-AGENT SWARM ==================== -->
+      <div id="view-swarm" class="view-container p-6 space-y-6 hidden">
+        <!-- Control Header -->
+        <div class="flex justify-between items-center p-4 rounded-xl bg-slate-900 border border-slate-800">
+          <div>
+            <div class="text-sm font-bold text-white">Closed-Loop Neuro-Symbolic Remediation Swarm</div>
+            <div class="text-xs text-slate-400 mt-0.5">Auditor • Regulatory Planner • Synthesizer • Invariant Supervisor</div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <label class="flex items-center space-x-2 text-xs text-slate-400 cursor-pointer">
+              <input type="checkbox" id="swarmApplyToggle" class="rounded bg-slate-800 border-slate-700 text-cyan-500">
+              <span>Write patches to workspace</span>
+            </label>
+            <button id="runSwarmBtn" onclick="window.SwarmModule.runSwarm()" class="px-5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/20 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span>Launch Multi-Agent Swarm</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Active Frontier AI Engine Banner -->
+        <div class="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/40 border border-slate-800 flex items-center justify-between">
+          <div class="flex items-center space-x-3.5">
+            <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-lg">
+              <svg class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Synthesis Engine:</span>
+                <span id="swarmActiveModelBadge" class="text-xs font-bold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono">
+                  Loading Model...
+                </span>
+                <span id="swarmModelContextBadge" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono">
+                  1M Context
+                </span>
+              </div>
+              <div class="text-xs text-slate-400 mt-0.5">
+                Neuro-symbolic execution pipeline: Centrality-bounded GraphRAG guidance + Ephemeral OpenTofu pre-flight invariant verification.
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="document.getElementById('openSettingsBtn').click()" class="px-3 py-1.5 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium flex items-center space-x-1.5 cursor-pointer">
+              <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <span>Switch Model / Configure Keys</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Workflow Stepper Pipeline -->
+        <div class="grid grid-cols-6 gap-3">
+          <div id="step-audit" class="p-3 rounded-xl border border-slate-700 bg-slate-800/60 text-slate-400 text-center text-xs font-semibold">
+            1. Auditor Gate
+          </div>
+          <div id="step-retrieve" class="p-3 rounded-xl border border-slate-700 bg-slate-800/60 text-slate-400 text-center text-xs font-semibold">
+            2. GraphRAG Retrieval
+          </div>
+          <div id="step-plan" class="p-3 rounded-xl border border-slate-700 bg-slate-800/60 text-slate-400 text-center text-xs font-semibold">
+            3. Policy Planner
+          </div>
+          <div id="step-synthesize" class="p-3 rounded-xl border border-slate-700 bg-slate-800/60 text-slate-400 text-center text-xs font-semibold">
+            4. Synthesizer
+          </div>
+          <div id="step-sandbox" class="p-3 rounded-xl border border-slate-700 bg-slate-800/60 text-slate-400 text-center text-xs font-semibold">
+            5. Invariant Sandbox
+          </div>
+          <div id="step-verify" class="p-3 rounded-xl border border-slate-700 bg-slate-800/60 text-slate-400 text-center text-xs font-semibold">
+            6. Semantic Check
+          </div>
+        </div>
+
+        <!-- Event Stream Feed & Verified Patches -->
+        <div class="grid grid-cols-12 gap-6">
+          <div class="col-span-7 border border-slate-800 rounded-xl bg-slate-900 p-4 flex flex-col h-96">
+            <div class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Live Agent Event Stream</div>
+            <div id="swarmEventFeed" class="flex-1 overflow-y-auto space-y-1 font-mono p-2 bg-slate-950 rounded-lg border border-slate-800">
+              <div class="text-xs text-slate-600 italic">Click "Launch Multi-Agent Swarm" to initiate closed-loop compliance repair.</div>
+            </div>
+          </div>
+          <div class="col-span-5 border border-slate-800 rounded-xl bg-slate-900 p-4 flex flex-col h-96">
+            <div class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Verified Safe Patches</div>
+            <div id="swarmPatchesList" class="flex-1 overflow-y-auto">
+              <div class="text-xs text-slate-600 italic">Awaiting verified patch synthesis...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 5: SANDBOX & INVARIANTS ==================== -->
+      <div id="view-sandbox" class="view-container p-6 space-y-6 hidden">
+        <div class="flex justify-between items-center p-4 rounded-xl bg-slate-900 border border-slate-800">
+          <div>
+            <div class="text-sm font-bold text-white">Ephemeral Pre-Flight Dry-Run Sandbox</div>
+            <div class="text-xs text-slate-400 mt-0.5">Mock cloud credentials • Plan diff extraction • Zero-Destruction gate</div>
+          </div>
+          <button id="runSandboxBtn" onclick="window.SandboxModule.runSimulation()" class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Run Pre-Flight Sandbox Simulation</span>
+          </button>
+        </div>
+
+        <!-- Verdict Banner -->
+        <div id="sandboxVerdictBanner"></div>
+
+        <!-- Gauges Row -->
+        <div class="grid grid-cols-4 gap-4">
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">Additive Creates</div>
+            <div id="sandboxCreatedCount" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">In-Place Updates</div>
+            <div id="sandboxUpdatedCount" class="text-2xl font-bold text-amber-400 mt-1">0</div>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">Destructive Deletions</div>
+            <div id="sandboxDeletedCount" class="text-2xl font-bold text-rose-400 mt-1">0</div>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">Forced Replacements</div>
+            <div id="sandboxReplacedCount" class="text-2xl font-bold text-rose-500 mt-1">0</div>
+          </div>
+        </div>
+
+        <!-- Changes List -->
+        <div class="border border-slate-800 rounded-xl bg-slate-900 p-4">
+          <div class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-3">Planned State Changes</div>
+          <div id="sandboxChangesList">
+            <div class="text-xs text-slate-500 py-4 text-center">Run simulation to view inspected plan diffs.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 6: BENCHMARKS & ABLATION ==================== -->
+      <div id="view-benchmark" class="view-container p-6 space-y-6 hidden">
+        <div class="flex justify-between items-center p-4 rounded-xl bg-slate-900 border border-slate-800">
+          <div>
+            <div class="text-sm font-bold text-white">Empirical Governance Benchmark & Ablation Study</div>
+            <div class="text-xs text-slate-400 mt-0.5">Head-to-head comparison against unconstrained Large Language Model baselines</div>
+          </div>
+          <button id="runBenchmarkBtn" onclick="window.BenchmarkModule.runBenchmark()" class="px-5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/20 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Run Comparative Ablation Study</span>
+          </button>
+        </div>
+
+        <!-- High-Level KPI Summary -->
+        <div class="grid grid-cols-4 gap-4">
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">Remediation Coverage</div>
+            <div id="bmRemediationRate" class="text-2xl font-bold text-cyan-400 mt-1">0.0%</div>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">Invariant Preservation</div>
+            <div id="bmInvariantRate" class="text-2xl font-bold text-emerald-400 mt-1">100.0%</div>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">Outages Prevented</div>
+            <div id="bmOutagesPrevented" class="text-2xl font-bold text-rose-400 mt-1">0</div>
+          </div>
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="text-[11px] font-bold uppercase text-slate-500">Pipeline Latency</div>
+            <div id="bmLatency" class="text-2xl font-bold text-purple-400 mt-1">0.00s</div>
+          </div>
+        </div>
+
+        <!-- Comparative Scorecard Table -->
+        <div class="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/40">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-900 border-b border-slate-800 text-slate-400 font-semibold">
+                <th class="py-3 px-4">Governance Dimension</th>
+                <th id="bmUnconstrainedHeader" class="py-3 px-4 text-center text-rose-300">Unconstrained Frontier LLM</th>
+                <th id="bmRegRadarHeader" class="py-3 px-4 text-center text-emerald-300">RegRadar Zero-Destruction Gate</th>
+                <th class="py-3 px-4 text-center text-cyan-300">Safety Advantage</th>
+              </tr>
+            </thead>
+            <tbody id="ablationTableBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Export Action Bar -->
+        <div class="flex justify-end space-x-3">
+          <button onclick="window.BenchmarkModule.exportArtifact('latex')" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <span>Download LaTeX (.tex)</span>
+          </button>
+          <button onclick="window.BenchmarkModule.exportArtifact('markdown')" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span>Download Markdown (.md)</span>
+          </button>
+          <button onclick="window.BenchmarkModule.exportArtifact('csv')" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <span>Download CSV (.csv)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ==================== VIEW 7: GITHUB CI/CD & HOOKS ==================== -->
+      <div id="view-github" class="view-container p-6 space-y-6 hidden">
+        <!-- Header Toolbar -->
+        <div class="flex justify-between items-center p-4 rounded-xl bg-slate-900 border border-slate-800">
+          <div>
+            <div class="text-sm font-bold text-white flex items-center gap-2">
+              <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+              <span>GitHub CI/CD & Automated Governance Hooks</span>
+            </div>
+            <div class="text-xs text-slate-400 mt-0.5">Webhook receiver with mandatory human operator sign-off for autonomous agent pull requests.</div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button id="simulateAgentPRBtn" onclick="window.GitHubModule.triggerSimulation('LEAF_SAFE')" class="px-4 py-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-xs font-semibold flex items-center gap-1.5 transition">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+              <span>Simulate Agent PR Event</span>
+            </button>
+            <button onclick="window.GitHubModule.loadPRs()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+              <span>Refresh Queue</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Webhook Config & Integration Card -->
+        <div class="grid grid-cols-12 gap-4">
+          <div class="col-span-8 p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+            <div class="text-xs font-bold text-slate-300 uppercase tracking-wider">Repository Webhook Endpoint</div>
+            <div class="flex items-center space-x-2">
+              <input type="text" id="ghWebhookEndpoint" readonly class="flex-1 bg-slate-950 border border-slate-700 px-3 py-2 rounded-lg text-xs font-mono text-cyan-400 select-all focus:outline-none">
+              <button id="copyWebhookBtn" onclick="window.GitHubModule.copyWebhookUrl()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <span>Copy URL</span>
+              </button>
+            </div>
+            <div class="text-[11px] text-slate-400">
+              Configure this payload URL in GitHub &rarr; Settings &rarr; Webhooks. Content type: <code class="text-slate-300 font-mono">application/json</code>. Trigger on: <strong>Pull requests</strong> & <strong>Pushes</strong>.
+            </div>
+          </div>
+
+          <div class="col-span-4 p-4 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between">
+            <div>
+              <div class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Gate Enforcement Policy</div>
+              <div class="space-y-1.5 text-xs">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">HMAC Secret:</span>
+                  <span id="ghSecretStatus" class="font-medium"></span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">Human Gate:</span>
+                  <span id="ghSignoffPolicy" class="font-medium"></span>
+                </div>
+              </div>
+            </div>
+            <div class="text-[10px] text-slate-500 font-mono pt-2 border-t border-slate-800">
+              Agent PRs require human approval before merge.
+            </div>
+          </div>
+        </div>
+
+        <!-- Staged Pull Requests Queue -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Autonomous Agent PR Staging Queue</h3>
+            <span class="text-xs text-slate-500 font-mono">Hold state: Zero-destruction non-destructive verification</span>
+          </div>
+
+          <div id="ghStagedPRList" class="space-y-3">
+            <!-- Rendered by window.GitHubModule -->
+          </div>
+
+          <!-- Empty State -->
+          <div id="ghEmptyPRList" class="p-12 text-center border border-slate-800 rounded-xl bg-slate-900/40 hidden">
+            <div class="text-slate-500 mb-2">
+              <svg class="w-8 h-8 mx-auto text-slate-600" viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+            </div>
+            <div class="text-sm font-semibold text-slate-300">No Pull Requests in Staging Queue</div>
+            <p class="text-xs text-slate-500 mt-1">Webhook triggers from GitHub or local simulations will appear here for security operator review.</p>
+          </div>
+        </div>
+
+        <!-- PR Plan Diff Inspector Slide-Over Drawer -->
+        <div id="ghPRDrawer" class="fixed right-0 top-0 bottom-0 w-[540px] bg-slate-900/95 backdrop-blur-xl border-l border-slate-800 p-6 shadow-2xl z-40 hidden overflow-y-auto flex flex-col justify-between">
+          <div class="space-y-4">
+            <div class="flex justify-between items-start pb-3 border-b border-slate-800">
+              <div>
+                <h3 id="ghDrawerTitle" class="text-sm font-bold text-white"></h3>
+                <div id="ghDrawerMeta" class="mt-1"></div>
+              </div>
+              <button onclick="window.GitHubModule.closeDrawer()" class="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div id="ghDrawerContent" class="space-y-3"></div>
+          </div>
+          <div class="pt-4 border-t border-slate-800 flex justify-end">
+            <button onclick="window.GitHubModule.closeDrawer()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">Close Drawer</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div id="settingsModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="w-[560px] bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-800">
+        <div>
+          <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+            <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-2.04z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-2.04z"/></svg>
+            <span>Frontier AI Engine & Model Settings</span>
+          </h3>
+          <p class="text-[11px] text-slate-400 mt-0.5">Select and configure the frontier LLM reasoning engine for zero-destruction remediation.</p>
+        </div>
+        <button id="closeSettingsBtn" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <!-- 1. Provider Selector -->
+        <div>
+          <label class="block text-slate-300 mb-1.5 font-bold uppercase tracking-wider text-[10px]">1. Select AI Provider</label>
+          <select id="providerSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 font-semibold focus:border-cyan-500 focus:outline-none">
+            <option value="gemini">Google Gemini (Gemini 4 Argon / Gemini 3.8 Flash)</option>
+            <option value="openai">OpenAI (ChatGPT-6 Sol / GPT-6 Astra / GPT-6 Luna)</option>
+            <option value="anthropic">Anthropic (Claude Sonnet 5.5 / Opus 5.5 / Fable 5.2)</option>
+            <option value="deepseek">DeepSeek (DeepSeek-V4 Pro / DeepSeek-Flash)</option>
+            <option value="ollama">Local Ollama (Llama 3.3 / Qwen 2.5 Coder / DeepSeek-R1)</option>
+            <option value="mock">Deterministic Mock (Offline / Reproducible)</option>
+          </select>
+        </div>
+
+        <!-- 2. Specific Model Selector -->
+        <div>
+          <label class="block text-slate-300 mb-1.5 font-bold uppercase tracking-wider text-[10px]">2. Target Frontier Model</label>
+          <select id="modelSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 font-mono focus:border-cyan-500 focus:outline-none">
+            <!-- Dynamically populated based on provider -->
+          </select>
+        </div>
+
+        <!-- 3. Dynamic Model Capabilities Card -->
+        <div id="modelCapabilitiesCard" class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span id="cardModelName" class="font-bold text-cyan-400 text-xs"></span>
+            <span id="cardModelTier" class="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30"></span>
+          </div>
+          <div id="cardModelTagline" class="text-slate-300 text-[11px]"></div>
+          <div class="flex items-center space-x-4 pt-1 text-[10px] text-slate-400 font-mono">
+            <span>Context: <strong id="cardModelContext" class="text-slate-200"></strong></span>
+            <span>Safety: <strong class="text-emerald-400">Zero-Destruction Bounded</strong></span>
+          </div>
+        </div>
+
+        <!-- 4. Provider Credentials -->
+        <div class="space-y-3 pt-1 border-t border-slate-800/60">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">3. Authentication Credentials</div>
+
+          <!-- OpenAI Key -->
+          <div id="openaiKeyGroup" class="space-y-1">
+            <div class="flex justify-between items-center">
+              <label class="text-slate-400 font-semibold">OpenAI API Key</label>
+              <span id="openaiKeyStatus" class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">Not Set</span>
+            </div>
+            <input type="password" id="openaiKeyInput" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 font-mono">
+          </div>
+
+          <!-- Anthropic Key -->
+          <div id="anthropicKeyGroup" class="space-y-1">
+            <div class="flex justify-between items-center">
+              <label class="text-slate-400 font-semibold">Anthropic API Key</label>
+              <span id="anthropicKeyStatus" class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">Not Set</span>
+            </div>
+            <input type="password" id="anthropicKeyInput" placeholder="sk-ant-..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 font-mono">
+          </div>
+
+          <!-- Gemini Key -->
+          <div id="geminiKeyGroup" class="space-y-1">
+            <div class="flex justify-between items-center">
+              <label class="text-slate-400 font-semibold">Google Gemini API Key</label>
+              <span id="geminiKeyStatus" class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">Not Set</span>
+            </div>
+            <input type="password" id="geminiKeyInput" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 font-mono">
+          </div>
+
+          <!-- DeepSeek Key -->
+          <div id="deepseekKeyGroup" class="space-y-1">
+            <div class="flex justify-between items-center">
+              <label class="text-slate-400 font-semibold">DeepSeek API Key</label>
+              <span id="deepseekKeyStatus" class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">Not Set</span>
+            </div>
+            <input type="password" id="deepseekKeyInput" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 font-mono">
+          </div>
+
+          <!-- Ollama URL -->
+          <div id="ollamaUrlGroup" class="space-y-1">
+            <label class="block text-slate-400 font-semibold">Ollama Base URL</label>
+            <input type="text" id="ollamaUrlInput" placeholder="http://localhost:11434" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 font-mono">
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-2.5 pt-3 border-t border-slate-800">
+        <button id="cancelSettingsBtn" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs">Cancel</button>
+        <button id="saveSettingsBtn" class="px-5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/20 flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Save & Apply Engine</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- Application Modules (with cache busting) -->
+  <script src="/js/icons.js?v=2026.1"></script>
+  <script src="/js/app.js?v=2026.1"></script>
+  <script src="/js/topology.js?v=2026.1"></script>
+  <script src="/js/compliance.js?v=2026.1"></script>
+  <script src="/js/review.js?v=2026.1"></script>
+  <script src="/js/swarm.js?v=2026.1"></script>
+  <script src="/js/sandbox.js?v=2026.1"></script>
+  <script src="/js/benchmark.js?v=2026.1"></script>
+  <script src="/js/github.js?v=2026.1"></script>
+</body>
+</html>

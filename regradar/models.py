@@ -44,6 +44,8 @@ class CentralityMetrics(BaseModel):
     blast_radius_score: float  # Normalized composite risk score [0.0, 1.0]
     risk_tier: RiskTier
     auto_remediate: bool  # Whether autonomous LLM agent remediation is permitted
+    eigenvector: float = 0.0  # Eigenvector centrality score
+    pagerank: float = 0.0  # PageRank centrality score
 
 
 class GraphSummary(BaseModel):

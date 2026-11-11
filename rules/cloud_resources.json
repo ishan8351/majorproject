@@ -1,0 +1,100 @@
+[
+  {
+    "id": "aws_s3_bucket",
+    "resource_type": "aws_s3_bucket",
+    "cloud_provider": "aws",
+    "service": "s3",
+    "description": "AWS Simple Storage Service (S3) bucket for object storage."
+  },
+  {
+    "id": "aws_db_instance",
+    "resource_type": "aws_db_instance",
+    "cloud_provider": "aws",
+    "service": "rds",
+    "description": "AWS Relational Database Service (RDS) instance."
+  },
+  {
+    "id": "aws_iam_policy",
+    "resource_type": "aws_iam_policy",
+    "cloud_provider": "aws",
+    "service": "iam",
+    "description": "AWS Identity and Access Management policy document."
+  },
+  {
+    "id": "aws_iam_account_password_policy",
+    "resource_type": "aws_iam_account_password_policy",
+    "cloud_provider": "aws",
+    "service": "iam",
+    "description": "AWS Account-wide IAM password policy configuration."
+  },
+  {
+    "id": "aws_kms_key",
+    "resource_type": "aws_kms_key",
+    "cloud_provider": "aws",
+    "service": "kms",
+    "description": "AWS Key Management Service customer managed key."
+  },
+  {
+    "id": "aws_cloudtrail",
+    "resource_type": "aws_cloudtrail",
+    "cloud_provider": "aws",
+    "service": "cloudtrail",
+    "description": "AWS CloudTrail service for event auditing and API tracking."
+  },
+  {
+    "id": "aws_security_group",
+    "resource_type": "aws_security_group",
+    "cloud_provider": "aws",
+    "service": "vpc",
+    "description": "AWS VPC Virtual Security Group firewall for compute resources."
+  },
+  {
+    "id": "aws_instance",
+    "resource_type": "aws_instance",
+    "cloud_provider": "aws",
+    "service": "ec2",
+    "description": "AWS Elastic Compute Cloud (EC2) virtual machine instance."
+  },
+  {
+    "id": "aws_vpc",
+    "resource_type": "aws_vpc",
+    "cloud_provider": "aws",
+    "service": "vpc",
+    "description": "AWS Virtual Private Cloud network boundary."
+  },
+  {
+    "id": "azurerm_storage_account",
+    "resource_type": "azurerm_storage_account",
+    "cloud_provider": "azure",
+    "service": "storage",
+    "description": "Microsoft Azure Storage Account for blobs, files, and tables."
+  },
+  {
+    "id": "azurerm_network_security_group",
+    "resource_type": "azurerm_network_security_group",
+    "cloud_provider": "azure",
+    "service": "nsg",
+    "description": "Microsoft Azure Network Security Group firewall filter."
+  },
+  {
+    "id": "google_compute_network",
+    "resource_type": "google_compute_network",
+    "cloud_provider": "gcp",
+    "service": "compute",
+    "description": "Google Cloud Platform Virtual Private Cloud network."
+  },
+  {
+    "id": "google_compute_firewall",
+    "resource_type": "google_compute_firewall",
+    "cloud_provider": "gcp",
+    "service": "compute",
+    "description": "Google Cloud Platform Compute Engine firewall rule."
+  },
+  {
+    "id": "google_storage_bucket",
+    "resource_type": "google_storage_bucket",
+    "cloud_provider": "gcp",
+    "service": "storage",
+    "description": "Google Cloud Platform Cloud Storage bucket."
+  }
+]

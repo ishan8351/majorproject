@@ -1,0 +1,50 @@
+[
+  {
+    "id": "REQ_ENCRYPTION_AT_REST",
+    "name": "Encryption at Rest",
+    "description": "Enforce strong symmetric (e.g. AES-256) or customer-managed key encryption for all stored, persistent cloud data.",
+    "category": "Data Protection"
+  },
+  {
+    "id": "REQ_ENCRYPTION_IN_TRANSIT",
+    "name": "Encryption in Transit",
+    "description": "Enforce modern TLS (v1.2+) and secure encrypted protocols for all network communications and ingress endpoints.",
+    "category": "Network Security"
+  },
+  {
+    "id": "REQ_ZERO_PUBLIC_INGRESS",
+    "name": "Zero Public Ingress",
+    "description": "Prohibit unrestricted direct public ingress from 0.0.0.0/0 to sensitive storage, databases, and management ports (SSH 22, RDP 3389).",
+    "category": "Network Security"
+  },
+  {
+    "id": "REQ_AUDIT_LOGGING",
+    "name": "Audit Logging",
+    "description": "Enforce comprehensive, centralized, and tamper-resistant event logging, flow logs, and performance metric tracking.",
+    "category": "Audit and Accountability"
+  },
+  {
+    "id": "REQ_BACKUP_AND_RESILIENCE",
+    "name": "Backup and Disaster Recovery",
+    "description": "Mandate automated point-in-time recovery, multi-AZ high availability deployment, and object versioning for disaster resilience.",
+    "category": "Resilience"
+  },
+  {
+    "id": "REQ_LEAST_PRIVILEGE",
+    "name": "Least Privilege and Identity Management",
+    "description": "Restrict wildcard admin access, enforce strong password policies, mandate MFA, and enforce IMDSv2 token authentication.",
+    "category": "Identity and Access Management"
+  },
+  {
+    "id": "REQ_KEY_MANAGEMENT",
+    "name": "Cryptographic Key Management",
+    "description": "Enforce automated key rotation and strictly bounded IAM access policies on cryptographic master keys.",
+    "category": "Cryptography"
+  },
+  {
+    "id": "REQ_SYSTEM_INTEGRITY",
+    "name": "System and Storage Integrity",
+    "description": "Enforce dedicated persistent EBS throughput optimization and cryptographic log file integrity validation.",
+    "category": "System Integrity"
+  }
+]

@@ -1,0 +1,62 @@
+# RegRadar Configuration (regradar.yaml)
+workspace:
+  root: "."
+  scan_paths:
+    - "tests/fixtures/benchmarks"
+    - "tests/fixtures"
+
+server:
+  host: "127.0.0.1"
+  port: 8000
+  reload: false
+  cors_origins:
+    - "*"
+
+centrality:
+  weights:
+    descendant_ratio: 0.40
+    betweenness: 0.25
+    eigenvector: 0.20
+    out_degree_ratio: 0.15
+  thresholds:
+    critical_root_score: 0.40
+    critical_root_descendant_ratio: 0.35
+    intermediate_score: 0.15
+  solver:
+    max_iter: 2000
+    tol: 0.000001
+
+llm:
+  provider: "mock"
+  openai:
+    model: "gpt-6-sol"
+    base_url: "https://api.openai.com/v1"
+    timeout: 30.0
+  anthropic:
+    model: "claude-sonnet-5-5"
+    base_url: "https://api.anthropic.com/v1"
+    timeout: 30.0
+    version: "2023-06-01"
+  gemini:
+    model: "gemini-4-argon"
+    base_url: "https://generativelanguage.googleapis.com/v1beta"
+    timeout: 30.0
+  deepseek:
+    model: "deepseek-v4-pro"
+    base_url: "https://api.deepseek.com"
+    timeout: 30.0
+  ollama:
+    model: "llama3.3"
+    base_url: "http://localhost:11434"
+    timeout: 60.0
+  swarm:
+    max_retries: 3
+    temperature: 0.0
+    deterministic: false
+
+sandbox:
+  binary_name: "tofu"
+  plugin_cache_dir: null
+  mock_aws_region: "us-east-1"
+  mock_gcp_project: "mock-project"
+  mock_gcp_region: "us-central1"

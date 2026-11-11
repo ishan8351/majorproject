@@ -1,0 +1,30 @@
+[
+  {
+    "id": "HIPAA",
+    "name": "Health Insurance Portability and Accountability Act",
+    "description": "US federal law establishing national standards for safeguarding protected health information (PHI) under the HIPAA Security Rule (45 CFR Part 160 & Part 164).",
+    "version": "45 CFR Part 160/164",
+    "jurisdiction": "US Healthcare"
+  },
+  {
+    "id": "GDPR",
+    "name": "General Data Protection Regulation",
+    "description": "European Union regulation on data privacy and security for all individuals within the EU/EEA (Regulation (EU) 2016/679).",
+    "version": "Regulation (EU) 2016/679",
+    "jurisdiction": "European Union"
+  },
+  {
+    "id": "NIST_SP_800_53",
+    "name": "NIST SP 800-53",
+    "description": "National Institute of Standards and Technology Special Publication 800-53: Security and Privacy Controls for Information Systems and Organizations.",
+    "version": "Rev. 5",
+    "jurisdiction": "US Federal / Global Enterprise"
+  },
+  {
+    "id": "PCI_DSS",
+    "name": "Payment Card Industry Data Security Standard",
+    "description": "Global information security standard administered by the PCI SSC to secure cardholder data (CHD) and cardholder data environments (CDE).",
+    "version": "v4.0",
+    "jurisdiction": "Global Payment Card Industry"
+  }
+]

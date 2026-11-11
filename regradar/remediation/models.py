@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from pydantic import BaseModel, Field
 
 
@@ -79,3 +79,4 @@ class SwarmExecutionResult(BaseModel):
     tasks: List[RemediationTask] = Field(default_factory=list)
     accepted_patches: List[PatchProposal] = Field(default_factory=list)
     remediated_files: Dict[str, str] = Field(default_factory=dict)
+    contexts: List[Any] = Field(default_factory=list)
