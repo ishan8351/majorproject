@@ -4,13 +4,49 @@ window.BenchmarkModule = (function () {
   let ablationResult = null;
 
   async function load() {
+    if (!AppState.currentWorkspace) {
+      renderEmptyState();
+      return;
+    }
     // If not loaded, run default benchmark on current target
     if (!ablationResult) {
       await runBenchmark();
     }
   }
 
+  function renderEmptyState() {
+    ablationResult = null;
+    const tbody = document.getElementById("ablationTableBody");
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" class="text-center py-12 text-slate-400">
+            <div class="max-w-md mx-auto space-y-3">
+              <div class="text-sm font-semibold text-slate-200">No Remote Repository Connected</div>
+              <p class="text-xs text-slate-400">Connect a GitHub or GitLab repository under CI/CD & Git Webhooks to compute empirical ablation and comparative governance metrics.</p>
+              <button onclick="switchTab('github')" class="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold cursor-pointer">Connect Remote Repository</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+    const remRate = document.getElementById("bmRemediationRate");
+    const invRate = document.getElementById("bmInvariantRate");
+    const outPrev = document.getElementById("bmOutagesPrevented");
+    const lat = document.getElementById("bmLatency");
+    if (remRate) remRate.textContent = "0.0%";
+    if (invRate) invRate.textContent = "100.0%";
+    if (outPrev) outPrev.textContent = "0";
+    if (lat) lat.textContent = "0.00s";
+  }
+
   async function runBenchmark() {
+    if (!AppState.currentWorkspace) {
+      showToast("Connect a remote repository first in CI/CD & Git Webhooks.", "info");
+      renderEmptyState();
+      return;
+    }
+
     const btn = document.getElementById("runBenchmarkBtn");
     if (btn) {
       btn.disabled = true;
@@ -94,14 +130,14 @@ window.BenchmarkModule = (function () {
   }
 
   function exportArtifact(format) {
-    if (!ablationResult) {
-      showToast("Run benchmark first before exporting.", "error");
+    if (!ablationResult || !AppState.currentWorkspace) {
+      showToast("Connect a repository and run benchmark first before exporting.", "info");
       return;
     }
 
     const rg = ablationResult.regradar_metrics;
     const unc = ablationResult.unconstrained_metrics;
-    const target = AppState.currentWorkspace.split("/").pop();
+    const target = (AppState.currentWorkspace || "workspace").split("/").pop();
 
     if (format === "latex") {
       const tex = `

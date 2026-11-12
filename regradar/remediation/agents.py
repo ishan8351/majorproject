@@ -119,6 +119,7 @@ class AuditorAgent:
                         prompt=prompt,
                         response_model=AuditorDecision,
                         system_prompt=AuditorPrompt.SYSTEM_PROMPT,
+                        max_tokens=384,
                     )
                     # Hard safety invariant: NEVER allow LLM to override CRITICAL_ROOT or missing action
                     if risk_tier == RiskTier.CRITICAL_ROOT.value:
@@ -204,6 +205,7 @@ class PolicyPlannerAgent:
                     prompt=prompt,
                     response_model=PolicyPlan,
                     system_prompt=PolicyPlannerPrompt.SYSTEM_PROMPT,
+                    max_tokens=512,
                 )
                 task.action = plan.to_action()
             except Exception as e:
@@ -253,6 +255,7 @@ class SynthesizerAgent:
                     prompt=prompt,
                     response_model=SynthesizerOutput,
                     system_prompt=SynthesizerPrompt.SYSTEM_PROMPT,
+                    max_tokens=1024,
                 )
                 if output.modified_content and output.modified_content != file_content:
                     return PatchProposal(
@@ -587,6 +590,7 @@ class SupervisorAgent:
                     prompt=prompt,
                     response_model=SupervisorDiagnosis,
                     system_prompt=SupervisorPrompt.SYSTEM_PROMPT,
+                    max_tokens=384,
                 )
                 if diagnosis.recommended_strategy and task.action:
                     task.action.strategy = diagnosis.recommended_strategy
@@ -634,6 +638,7 @@ class SupervisorAgent:
                     prompt=prompt,
                     response_model=SupervisorDiagnosis,
                     system_prompt=SupervisorPrompt.SYSTEM_PROMPT,
+                    max_tokens=384,
                 )
                 if diagnosis.recommended_strategy and task.action:
                     task.action.strategy = diagnosis.recommended_strategy

@@ -67,13 +67,13 @@ class PRGatekeeper:
     """
 
     BADGE_CRITICAL_ROOT = (
-        "![CRITICAL_ROOT](https://img.shields.io/badge/Risk-CRITICAL__ROOT-critical.svg) 🔴 `CRITICAL_ROOT`"
+        "![CRITICAL_ROOT](https://img.shields.io/badge/Risk-CRITICAL__ROOT-critical.svg) `CRITICAL_ROOT`"
     )
     BADGE_INTERMEDIATE = (
-        "![INTERMEDIATE](https://img.shields.io/badge/Risk-INTERMEDIATE-yellow.svg) 🟡 `INTERMEDIATE`"
+        "![INTERMEDIATE](https://img.shields.io/badge/Risk-INTERMEDIATE-yellow.svg) `INTERMEDIATE`"
     )
     BADGE_LEAF_SAFE = (
-        "![LEAF_SAFE](https://img.shields.io/badge/Risk-LEAF__SAFE-success.svg) 🟢 `LEAF_SAFE`"
+        "![LEAF_SAFE](https://img.shields.io/badge/Risk-LEAF__SAFE-success.svg) `LEAF_SAFE`"
     )
 
     def __init__(
@@ -322,20 +322,20 @@ class PRGatekeeper:
         lines: List[str] = []
 
         # 1. Header
-        lines.append("## 🛡️ RegRadar CI/CD Compliance & Safety Gatekeeper\n")
+        lines.append("## RegRadar CI/CD Compliance & Safety Gatekeeper\n")
 
         # 2. Invariant Verdict Banner
         if evaluation.invariant_verdict == "PASS":
-            lines.append("### 🛡️ Zero-Destruction Invariant Verdict: **PASS** :white_check_mark:\n")
+            lines.append("### Zero-Destruction Invariant Verdict: **PASS**\n")
             lines.append(
                 "> **Zero-Destruction Guarantee Met:** All planned resource modifications pass "
                 "formal state-continuity invariants. Zero deletions, zero forces-replacements, "
                 "and no unapproved root mutations detected.\n"
             )
         else:
-            lines.append("### 🛡️ Zero-Destruction Invariant Verdict: **FAIL** :x:\n")
+            lines.append("### Zero-Destruction Invariant Verdict: **FAIL**\n")
             lines.append(
-                "> ❌ **CRITICAL SAFETY ALERT:** Planned changes violate state-continuity invariants "
+                "> **CRITICAL SAFETY ALERT:** Planned changes violate state-continuity invariants "
                 "or contain unapproved mutations on foundational root infrastructure. "
                 "Pipeline execution is halted until approved.\n"
             )
@@ -348,25 +348,25 @@ class PRGatekeeper:
         c_delete = inv.count_deleted if inv else 0
         c_replace = inv.count_replaced if inv else 0
 
-        lines.append("### 📊 Infrastructure Modification Summary\n")
+        lines.append("### Infrastructure Modification Summary\n")
         lines.append("| Metric | Value | Status |")
         lines.append("|:---|:---:|:---|")
         lines.append(f"| **Evaluated Resources** | `{total_eval}` | Total planned changes |")
         lines.append(f"| **Additive Creates (`+`)** | `{c_create}` | Safe additive infrastructure |")
         lines.append(f"| **In-Place Updates (`~`)** | `{c_update}` | Safe state modification |")
 
-        del_status = "⚠️ Requires Approval" if c_delete > 0 else "✔ None"
-        rep_status = "⚠️ Forces Replacement" if c_replace > 0 else "✔ None"
+        del_status = "Requires Approval" if c_delete > 0 else "None"
+        rep_status = "Forces Replacement" if c_replace > 0 else "None"
         lines.append(f"| **Destructive Deletions (`-`)** | `{c_delete}` | {del_status} |")
         lines.append(f"| **Destructive Replacements (`±`)** | `{c_replace}` | {rep_status} |")
 
         root_mut_count = len(evaluation.unapproved_root_mutations)
-        root_status = "❌ Unapproved Root Mutation" if root_mut_count > 0 else "✔ Compliant"
+        root_status = "Unapproved Root Mutation" if root_mut_count > 0 else "Compliant"
         lines.append(f"| **Unapproved Root Mutations** | `{root_mut_count}` | {root_status} |")
         lines.append("")
 
         # 4. Blast-Radius Risk Assessment Table
-        lines.append("### 💥 Blast-Radius Risk Assessment\n")
+        lines.append("### Blast-Radius Risk Assessment\n")
         metrics_map = evaluation.blast_radius_summary.metrics if evaluation.blast_radius_summary else {}
 
         if metrics_map:
@@ -394,15 +394,15 @@ class PRGatekeeper:
                 # Determine status note
                 is_modified = m.node_id in modified_addrs
                 if m.node_id in [c.address for c in evaluation.destructive_changes]:
-                    status = "❌ **Destructive Change (Blocked)**"
+                    status = "**Destructive Change (Blocked)**"
                 elif m.node_id in [c.address for c in evaluation.unapproved_root_mutations]:
-                    status = "⚠️ **Root Mutation (Needs Approval)**"
+                    status = "**Root Mutation (Needs Approval)**"
                 elif is_modified:
-                    status = "✔ Safe In-Place Modification"
+                    status = "Safe In-Place Modification"
                 elif tier_val == RiskTier.CRITICAL_ROOT.value:
-                    status = "🔒 Locked Foundation (Protected)"
+                    status = "Locked Foundation (Protected)"
                 else:
-                    status = "✔ Clean / Unaffected"
+                    status = "Clean / Unaffected"
 
                 lines.append(
                     f"| `{m.node_id}` | `{m.resource_type}` | {m.out_degree} | "
@@ -415,7 +415,7 @@ class PRGatekeeper:
 
         # 5. Invariant Violations Section (if any)
         if inv and inv.violations:
-            lines.append("### 🚫 Invariant Violations (Pipeline Breakers)\n")
+            lines.append("### Invariant Violations (Pipeline Breakers)\n")
             lines.append("| Resource Address | Violation Type | Actions | Message |")
             lines.append("|:---|:---:|:---:|:---|")
             for v in inv.violations:
@@ -425,21 +425,21 @@ class PRGatekeeper:
             lines.append("")
 
         # 6. Verified Autonomous Patches vs. Items Requiring Manual Sign-Off
-        lines.append("### 🤖 Verified Autonomous Patches\n")
+        lines.append("### Verified Autonomous Patches\n")
         if evaluation.verified_patches:
             lines.append(
                 f"> **{len(evaluation.verified_patches)} Non-Destructive Patches Synthesized & Verified** "
                 f"via ephemeral sandboxed simulation:\n"
             )
             for p in evaluation.verified_patches:
-                lines.append(f"<details><summary><b>✔ {p.resource_id}</b> ({p.strategy.value}) in <code>{p.target_file}</code></summary>\n")
+                lines.append(f"<details><summary><b>{p.resource_id}</b> ({p.strategy.value}) in <code>{p.target_file}</code></summary>\n")
                 lines.append("```hcl")
                 lines.append(p.remediated_snippet.strip())
                 lines.append("```\n</details>\n")
         else:
             lines.append("_No autonomous patches pending for eligible leaf components._\n")
 
-        lines.append("### ⚠️ Manual Security Sign-Off Required\n")
+        lines.append("### Manual Security Sign-Off Required\n")
         if evaluation.manual_signoff_items or evaluation.unapproved_root_mutations:
             lines.append(
                 "> The following infrastructure changes or compliance findings affect foundational "
@@ -480,7 +480,7 @@ class PRGatekeeper:
                 )
             lines.append("")
         else:
-            lines.append("✔ _No human security escalation required. All modifications conform to safety policy._\n")
+            lines.append("_No human security escalation required. All modifications conform to safety policy._\n")
 
         # 7. Footer
         lines.append("---\n*Generated autonomously by **RegRadar Zero-Destruction Compliance Engine***")

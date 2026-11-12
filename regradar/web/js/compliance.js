@@ -2,14 +2,33 @@
 
 window.ComplianceModule = (function () {
   let violations = [];
+  let policyEngines = null;
 
   async function load() {
     const tbody = document.getElementById("complianceTableBody");
     if (!tbody) return;
 
+    if (!AppState.currentWorkspace) {
+      await loadPolicyEngines();
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="text-center py-12 text-slate-400">
+            <div class="max-w-md mx-auto space-y-3">
+              <div class="text-sm font-semibold text-slate-200">No Remote Repository Connected</div>
+              <p class="text-xs text-slate-400">Connect a GitHub or GitLab repository under CI/CD & Git Webhooks to run static compliance and GraphRAG policy audits.</p>
+              <button onclick="switchTab('github')" class="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold cursor-pointer">Connect Remote Repository</button>
+            </div>
+          </td>
+        </tr>
+      `;
+      updateStats([]);
+      return;
+    }
+
     try {
       showLoading(true);
       const targetPath = AppState.currentWorkspace;
+      await loadPolicyEngines();
       violations = await apiCall("/api/audit", "POST", { target_path: targetPath });
       renderTable(violations);
       updateStats(violations);
@@ -18,6 +37,36 @@ window.ComplianceModule = (function () {
       showToast(`Compliance audit failed: ${err.message}`, "error");
     } finally {
       showLoading(false);
+    }
+  }
+
+  async function loadPolicyEngines() {
+    const container = document.getElementById("policyEnginesPills");
+    if (!container) return;
+    try {
+      const res = await apiCall("/api/policy/engines", "GET");
+      policyEngines = res;
+      if (res && res.engines) {
+        container.innerHTML = res.engines.map(eng => {
+          const isActive = eng.available;
+          const badgeClass = isActive
+            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+            : "bg-slate-800 text-slate-400 border-slate-700";
+          const shortName = eng.engine_id === "checkov"
+            ? "Checkov Linter"
+            : eng.engine_id === "opa"
+            ? "OPA / Rego"
+            : "RegRadar AST";
+          return `
+            <span class="px-2.5 py-1 rounded-md text-[11px] font-mono border flex items-center gap-1.5 ${badgeClass}" title="${eng.name}: ${eng.status}">
+              <span>${shortName}</span>
+              <span class="text-[10px] opacity-75">(${eng.status})</span>
+            </span>
+          `;
+        }).join('');
+      }
+    } catch (e) {
+      console.warn("Could not load policy engines metadata", e);
     }
   }
 

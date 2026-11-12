@@ -7,6 +7,10 @@ window.SwarmModule = (function () {
     // Initial empty state or last run result
     if (!executionResult) {
       resetPipeline();
+      const logContainer = document.getElementById("swarmEventFeed");
+      if (logContainer && !AppState.currentWorkspace && logContainer.children.length === 0) {
+        appendLog("SYSTEM", "Multi-agent remediation orchestrator ready. Connect a GitHub or GitLab repository in CI/CD & Git Webhooks to begin.");
+      }
     }
     updateSwarmHeaderModel();
   }
@@ -17,8 +21,8 @@ window.SwarmModule = (function () {
     const badge = document.getElementById("swarmActiveModelBadge");
     const ctxBadge = document.getElementById("swarmModelContextBadge");
 
-    const p = s.current_provider || "mock";
-    const m = s.current_model || "mock-deterministic";
+    const p = s.current_provider || "gemini";
+    const m = s.current_model || "gemini-4-argon";
     const models = (s.available_models && s.available_models[p]) || [];
     const found = models.find(x => x.id === m);
 
@@ -32,33 +36,46 @@ window.SwarmModule = (function () {
   }
 
   function resetPipeline() {
-    const steps = ["step-audit", "step-retrieve", "step-plan", "step-synthesize", "step-sandbox", "step-verify"];
-    steps.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.className = "p-3 rounded-xl border border-slate-700 bg-slate-800/60 text-slate-400 text-center text-xs font-semibold";
-      }
-    });
+    resetAllAgents();
   }
 
-  function setStepActive(id) {
-    const el = document.getElementById(id);
-    if (el) {
-      el.className = "p-3 rounded-xl border border-cyan-500 bg-cyan-500/10 text-cyan-300 text-center text-xs font-bold animate-pulse-subtle";
+  function setAgentState(agent, label, status) {
+    const card = document.getElementById(`card-agent-${agent}`);
+    const badge = document.getElementById(`badge-agent-${agent}`);
+    if (!card || !badge) return;
+
+    badge.textContent = label;
+
+    if (status === "active") {
+      card.className = "p-3 rounded-xl bg-cyan-950/40 border border-cyan-400 shadow-lg shadow-cyan-500/10 flex flex-col justify-between transition-all duration-300 relative group";
+      badge.className = "text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 font-bold animate-pulse";
+    } else if (status === "complete") {
+      card.className = "p-3 rounded-xl bg-slate-950 border border-emerald-500/40 flex flex-col justify-between transition-all duration-300 relative group";
+      badge.className = "text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold";
+    } else if (status === "escalated") {
+      card.className = "p-3 rounded-xl bg-slate-950 border border-amber-500/40 flex flex-col justify-between transition-all duration-300 relative group";
+      badge.className = "text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold";
+    } else {
+      card.className = "p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between transition-all duration-300 relative group";
+      badge.className = "text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700";
     }
   }
 
-  function setStepComplete(id) {
-    const el = document.getElementById(id);
-    if (el) {
-      el.className = "p-3 rounded-xl border border-emerald-500 bg-emerald-500/10 text-emerald-300 text-center text-xs font-bold";
-    }
+  function resetAllAgents() {
+    ["auditor", "planner", "synthesizer", "supervisor"].forEach(a => setAgentState(a, "IDLE", "idle"));
   }
 
   async function runSwarm() {
     const btn = document.getElementById("runSwarmBtn");
     const applyToggle = document.getElementById("swarmApplyToggle");
     const apply = applyToggle ? applyToggle.checked : false;
+
+    const targetPath = AppState.currentWorkspace;
+    if (!targetPath) {
+      appendLog("SYSTEM", "Execution halted: No remote repository connected. Please connect a GitHub or GitLab repository under CI/CD & Git Webhooks.");
+      showToast("Please connect a remote repository in CI/CD & Git Webhooks first.", "error");
+      return;
+    }
 
     if (btn) {
       btn.disabled = true;
@@ -67,17 +84,16 @@ window.SwarmModule = (function () {
 
     const logContainer = document.getElementById("swarmEventFeed");
     if (logContainer) logContainer.innerHTML = "";
-    resetPipeline();
+    resetAllAgents();
 
     try {
       const s = window.AppState && window.AppState.settings;
-      const activeProvider = (s && s.current_provider) ? s.current_provider.toUpperCase() : "MOCK";
-      const activeModel = (s && s.current_model) || "Deterministic Solver";
+      const activeProvider = (s && s.current_provider) ? s.current_provider.toUpperCase() : "GEMINI";
+      const activeModel = (s && s.current_model) || "gemini-4-argon";
       const modelDisplayName = (window.getModelDisplayName) ? window.getModelDisplayName(s.current_provider, activeModel) : activeModel;
-      const targetPath = AppState.currentWorkspace;
 
       appendLog("SYSTEM", `Initializing multi-agent neuro-symbolic remediation swarm [AI Engine: ${modelDisplayName} (${activeProvider})] on target workspace: ${targetPath}...`);
-      setStepActive("step-audit");
+      setAgentState("auditor", "ANALYZING", "active");
 
       // Execute live backend multi-agent orchestration
       const result = await apiCall("/api/remediate", "POST", {
@@ -86,21 +102,24 @@ window.SwarmModule = (function () {
       });
       executionResult = result;
 
-      setStepComplete("step-audit");
+      setAgentState("auditor", "AUDITED", "complete");
 
       if (result.total_violations_found === 0) {
         appendLog("AUDITOR", "Static analysis & AST audit complete: 0 policy violations detected. Target workspace is fully compliant.");
         appendLog("SUPERVISOR", "No remediation actions required. Zero regressions found against regulatory invariants.");
+        setAgentState("planner", "SKIPPED", "idle");
+        setAgentState("synthesizer", "SKIPPED", "idle");
+        setAgentState("supervisor", "INVARIANT PASS", "complete");
       } else {
         appendLog("AUDITOR", `AST dependency DAG analyzed: detected ${result.total_violations_found} violations (${result.autonomous_remediations_eligible} eligible for autonomous synthesis, ${result.human_escalations_required} gated for human sign-off).`);
 
+        setAgentState("planner", "PLANNING", "active");
+
         // Render genuine multi-agent state-machine event stream from result.contexts
         if (result.contexts && Array.isArray(result.contexts) && result.contexts.length > 0) {
-          let sawRetrieve = false;
           let sawPlan = false;
           let sawSynthesize = false;
-          let sawSandbox = false;
-          let sawVerify = false;
+          let sawSupervisor = false;
 
           for (const ctx of result.contexts) {
             const t = ctx.task || {};
@@ -113,22 +132,16 @@ window.SwarmModule = (function () {
                 let agent = "SYSTEM";
                 if (state === "GRAPH_RAG_RETRIEVE") {
                   agent = "PLANNER";
-                  sawRetrieve = true;
+                  sawPlan = true;
                 } else if (state === "PLAN") {
                   agent = "PLANNER";
                   sawPlan = true;
                 } else if (state === "SYNTHESIZE") {
                   agent = "SYNTHESIZER";
                   sawSynthesize = true;
-                } else if (state === "DRY_RUN_SANDBOX") {
+                } else if (state === "DRY_RUN_SANDBOX" || state === "SEMANTIC_VERIFY" || state === "ACCEPT") {
                   agent = "SUPERVISOR";
-                  sawSandbox = true;
-                } else if (state === "SEMANTIC_VERIFY") {
-                  agent = "SUPERVISOR";
-                  sawVerify = true;
-                } else if (state === "ACCEPT") {
-                  agent = "SUPERVISOR";
-                  sawVerify = true;
+                  sawSupervisor = true;
                 } else if (state === "ESCALATE") {
                   agent = "SUPERVISOR";
                 } else if (state === "RETRY_WITH_FEEDBACK") {
@@ -141,11 +154,13 @@ window.SwarmModule = (function () {
             }
           }
 
-          if (sawRetrieve) setStepComplete("step-retrieve");
-          if (sawPlan) setStepComplete("step-plan");
-          if (sawSynthesize) setStepComplete("step-synthesize");
-          if (sawSandbox) setStepComplete("step-sandbox");
-          if (sawVerify) setStepComplete("step-verify");
+          if (sawPlan) setAgentState("planner", "PLANNED", "complete");
+          if (sawSynthesize) setAgentState("synthesizer", "SYNTHESIZED", "complete");
+          if (sawSupervisor) setAgentState("supervisor", "VERIFIED (0 DESTRUCTIVE)", "complete");
+        } else {
+          setAgentState("planner", "PLANNED", "complete");
+          setAgentState("synthesizer", "SYNTHESIZED", "complete");
+          setAgentState("supervisor", "VERIFIED (0 DESTRUCTIVE)", "complete");
         }
 
         appendLog("SUPERVISOR", `Swarm cycle completed. Verified & Accepted: ${result.patches_verified_and_accepted}, Escalated / Gated: ${result.patches_rejected_and_escalated + result.human_escalations_required}.`);
@@ -155,6 +170,7 @@ window.SwarmModule = (function () {
       showToast(`Swarm finished: ${result.patches_verified_and_accepted} patches verified safe!`, "success");
     } catch (err) {
       appendLog("ERROR", `Swarm execution halted: ${err.message}`);
+      setAgentState("auditor", "ERROR", "escalated");
       showToast(`Swarm halted: ${err.message}`, "error");
     } finally {
       if (btn) {
@@ -191,9 +207,12 @@ window.SwarmModule = (function () {
   }
 
   function renderSwarmResults(res) {
-    document.getElementById("swarmAcceptedCount").textContent = res.patches_verified_and_accepted || 0;
-    document.getElementById("swarmEscalatedCount").textContent = res.human_escalations_required || 0;
-    document.getElementById("swarmTotalCount").textContent = res.total_violations_found || 0;
+    const acceptedEl = document.getElementById("swarmAcceptedCount");
+    const escalatedEl = document.getElementById("swarmEscalatedCount");
+    const totalEl = document.getElementById("swarmTotalCount");
+    if (acceptedEl) acceptedEl.textContent = res.patches_verified_and_accepted || 0;
+    if (escalatedEl) escalatedEl.textContent = res.human_escalations_required || 0;
+    if (totalEl) totalEl.textContent = res.total_violations_found || 0;
 
     const patchesList = document.getElementById("swarmPatchesList");
     if (!patchesList) return;

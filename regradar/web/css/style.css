@@ -1,41 +1,34 @@
 @import url('./theme.css');
 
 :root {
-  --bg-primary: var(--bg-base, #08090d);
-  --bg-secondary: var(--bg-surface, #11131a);
-  --bg-card: var(--bg-card, #161922);
-  --bg-hover: var(--bg-hover, #1e2230);
-  --border-color: var(--border-subtle, #232738);
-  --text-primary: var(--text-main, #f1f5f9);
-  --text-secondary: var(--text-muted, #94a3b8);
-  --text-muted: var(--text-faint, #64748b);
-  --accent-cyan: var(--accent-primary, #00e5ff);
+  --bg-primary: var(--bg-base);
+  --bg-secondary: var(--bg-surface);
+  --bg-card: var(--bg-card);
+  --bg-hover: var(--bg-hover);
+  --border-color: var(--border-subtle);
+  --text-primary: var(--text-main);
+  --text-secondary: var(--text-muted);
+  --text-muted: var(--text-faint);
+  --accent-cyan: var(--accent-primary);
   --accent-blue: #3b82f6;
   --accent-purple: #8b5cf6;
-  --risk-critical: #ef4444;
-  --risk-intermediate: #f59e0b;
-  --risk-leaf: #10b981;
+  --risk-critical: var(--risk-critical);
+  --risk-intermediate: var(--risk-intermediate);
+  --risk-leaf: var(--risk-leaf);
 }
 
-[data-theme="light"] {
-  --bg-primary: #f8fafc;
-  --bg-secondary: #ffffff;
-  --bg-card: #ffffff;
-  --bg-hover: #f1f5f9;
-  --border-color: #e2e8f0;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: var(--bg-base);
+  color: var(--text-main);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   margin: 0;
   padding: 0;
-  overflow: hidden;
-  height: 100vh;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* Custom scrollbars */
@@ -44,14 +37,14 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+  background: var(--bg-base);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: var(--border-subtle);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--border-strong);
 }
 
 /* Cytoscape Canvas */
@@ -63,6 +56,17 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
+}
+
+/* Topology Filter Buttons */
+.topo-filter-btn {
+  transition: all 0.18s ease;
+}
+.topo-filter-btn.active {
+  background-color: var(--bg-hover) !important;
+  color: var(--text-main) !important;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
 /* Diff Styling */
@@ -87,26 +91,136 @@ body {
 
 /* Badge helpers */
 .badge-critical {
-  background-color: rgba(239, 68, 68, 0.18);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  background-color: var(--risk-critical-bg);
+  color: var(--risk-critical);
+  border: 1px solid var(--risk-critical);
 }
 .badge-intermediate {
-  background-color: rgba(245, 158, 11, 0.18);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  background-color: var(--risk-intermediate-bg);
+  color: var(--risk-intermediate);
+  border: 1px solid var(--risk-intermediate);
 }
 .badge-leaf {
-  background-color: rgba(16, 185, 129, 0.18);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  background-color: var(--risk-leaf-bg);
+  color: var(--risk-leaf);
+  border: 1px solid var(--risk-leaf);
 }
 
-/* Animation utilities */
+/* Subtle animation utilities */
 @keyframes pulse-subtle {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.65; }
 }
 .animate-pulse-subtle {
-  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  animation: pulse-subtle 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes float-subtle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+.animate-float-subtle {
+  animation: float-subtle 4s ease-in-out infinite;
+}
+
+/* Landing Page Visual Highlights */
+.landing-hero-glow {
+  position: absolute;
+  top: -150px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 720px;
+  height: 400px;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.landing-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
+}
+
+.interactive-step-btn {
+  transition: all 0.2s ease;
+}
+.interactive-step-btn.active-step {
+  border-color: var(--accent-primary) !important;
+  background-color: var(--accent-subtle) !important;
+}
+
+.landing-feature-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--accent-subtle);
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-border);
+}
+
+/* ========================================================================= */
+/* LANDING PAGE COALESCING HEADER                                            */
+/* ========================================================================= */
+#landingHeaderWrapper {
+  transition: padding 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#landingHeader {
+  transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: max-width, border-radius, padding, box-shadow;
+}
+
+#landingHeaderWrapper.scrolled {
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.25rem !important;
+}
+
+#landingHeaderWrapper.scrolled #landingHeader {
+  max-width: 960px !important;
+  border-radius: 9999px !important;
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.38) !important;
+  border-color: var(--border-strong) !important;
+}
+
+[data-theme="light"] #landingHeaderWrapper.scrolled #landingHeader {
+  box-shadow: 0 14px 30px -6px rgba(45, 35, 20, 0.14) !important;
+  background-color: rgba(255, 254, 248, 0.94) !important;
+}
+
+[data-theme="dark"] #landingHeaderWrapper.scrolled #landingHeader {
+  background-color: rgba(29, 26, 22, 0.94) !important;
+}
+
+/* ========================================================================= */
+/* DUAL GATE ARCHITECTURE DIAGRAM STYLES                                     */
+/* ========================================================================= */
+.arch-diagram-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-elevated);
+}
+
+.arch-node {
+  transition: all 0.2s ease;
+}
+
+.arch-node:hover {
+  filter: brightness(1.08);
 }

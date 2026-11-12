@@ -620,7 +620,7 @@ class AnthropicClient(BaseLLMClient):
         payload: Dict[str, Any] = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens or 4096,
+            "max_tokens": max_tokens or 1024,
         }
         # Support Claude 5.5 / 3.7 adaptive/hybrid extended thinking mode
         if "thinking" in kwargs:
@@ -933,15 +933,16 @@ def get_llm_client(provider: Optional[str] = None, **kwargs: Any) -> BaseLLMClie
     if os.environ.get("OLLAMA_BASE_URL"):
         return OllamaClient(**kwargs)
 
-    # Configured provider if non-default
-    cfg_target = get_config().llm.provider.lower()
-    if cfg_target == "openai":
+    # Configured provider if non-default and credentials present
+    cfg = get_config()
+    cfg_target = cfg.llm.provider.lower()
+    if cfg_target == "openai" and (os.environ.get("OPENAI_API_KEY") or cfg.llm.openai.api_key):
         return OpenAIClient(**kwargs)
-    if cfg_target == "anthropic":
+    if cfg_target == "anthropic" and (os.environ.get("ANTHROPIC_API_KEY") or cfg.llm.anthropic.api_key):
         return AnthropicClient(**kwargs)
-    if cfg_target == "gemini":
+    if cfg_target == "gemini" and (os.environ.get("GEMINI_API_KEY") or cfg.llm.gemini.api_key):
         return GeminiClient(**kwargs)
-    if cfg_target == "deepseek":
+    if cfg_target == "deepseek" and (os.environ.get("DEEPSEEK_API_KEY") or cfg.llm.deepseek.api_key):
         return DeepSeekClient(**kwargs)
     if cfg_target == "ollama":
         return OllamaClient(**kwargs)

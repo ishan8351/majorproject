@@ -40,8 +40,9 @@ class ReviewDecision(BaseModel):
 
 
 class StagedPR(BaseModel):
-    """Pull request held in the RegRadar Governance staging queue."""
+    """Pull request or Merge request held in the RegRadar Governance staging queue."""
     id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
+    provider: str = Field(default="github", description="'github' or 'gitlab'")
     pr_number: int = Field(default=1)
     repo: str = Field(default="acme/infrastructure")
     title: str = Field(default="Remediate S3 Encryption Compliance")
@@ -147,14 +148,14 @@ def verify_github_signature(
 
 
 class GitHubPRStore:
-    """Production-grade persistent store for staged PRs requiring human operator review."""
+    """Production-grade persistent store for staged PRs backed by SQLite Governance DB."""
 
     _instance: Optional["GitHubPRStore"] = None
 
     def __init__(self, persistence_file: Optional[Path] = None):
-        self._prs: Dict[str, StagedPR] = {}
-        self.persistence_file = persistence_file or self._resolve_persistence_file()
-        self._load_from_disk()
+        from regradar.storage.db import get_governance_db
+        self.db = get_governance_db()
+        self.persistence_file = persistence_file
 
     @classmethod
     def get_instance(cls) -> "GitHubPRStore":
@@ -162,93 +163,23 @@ class GitHubPRStore:
             cls._instance = cls()
         return cls._instance
 
-    @staticmethod
-    def _resolve_persistence_file() -> Path:
-        from regradar.config import get_config, resolve_workspace_root
-        cfg = get_config()
-        root = resolve_workspace_root(cfg.workspace.root)
-        return root / ".regradar_staged_prs.json"
-
-    def _load_from_disk(self) -> None:
-        """Loads previously staged PRs from JSON persistence file if available."""
-        if self.persistence_file and self.persistence_file.is_file():
-            try:
-                data = json.loads(self.persistence_file.read_text(encoding="utf-8"))
-                for pr_dict in data:
-                    pr = StagedPR(**pr_dict)
-                    self._prs[pr.id] = pr
-            except Exception as e:
-                logger.warning(f"Failed to load staged PRs from {self.persistence_file}: {e}")
-
-    def _save_to_disk(self) -> None:
-        """Persists current staged PRs to JSON file."""
-        if self.persistence_file:
-            try:
-                self.persistence_file.parent.mkdir(parents=True, exist_ok=True)
-                data = [pr.model_dump() for pr in self._prs.values()]
-                self.persistence_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
-            except Exception as e:
-                logger.warning(f"Failed to save staged PRs to {self.persistence_file}: {e}")
-
-    def seed_demo_examples(self) -> None:
-        """Seeds realistic staged PR examples on demand for demonstration or tests."""
-        sample_agent_pr = StagedPR(
-            id="pr-104",
-            pr_number=104,
-            repo="org/cloud-infra",
-            title="[RegRadar Agent] Enable AWS S3 Bucket Encryption & Block Public Access",
-            author="regradar-remediation-bot[bot]",
-            head_branch="regradar/fix-s3-ckv-aws-19",
-            base_branch="main",
-            is_agent_pr=True,
-            status="AWAITING_HUMAN_APPROVAL",
-            risk_tier="LEAF_SAFE",
-            invariant_verdict="PASS",
-            destructive_changes_count=0,
-            summary_markdown=(
-                "### RegRadar Zero-Destruction PR Review\n\n"
-                "- **Risk Tier**: `LEAF_SAFE` (Non-destructive patch)\n"
-                "- **Invariant Verdict**: **PASS** (0 destructions, 0 replacements)\n"
-                "- **Additions**: Added `aws_s3_bucket_server_side_encryption_configuration.enc`\n"
-                "- **Gating**: Agent PR requires explicit operator sign-off before merge."
-            ),
-            created_at=datetime.now(timezone.utc).isoformat(),
-        )
-        sample_critical_pr = StagedPR(
-            id="pr-105",
-            pr_number=105,
-            repo="org/cloud-infra",
-            title="[RegRadar Agent] Update Core VPC CIDR & Subnet Segmentation",
-            author="regradar-remediation-bot[bot]",
-            head_branch="regradar/fix-vpc-centrality",
-            base_branch="main",
-            is_agent_pr=True,
-            status="AWAITING_HUMAN_APPROVAL",
-            risk_tier="CRITICAL_ROOT",
-            invariant_verdict="PASS",
-            destructive_changes_count=0,
-            summary_markdown=(
-                "### RegRadar Zero-Destruction PR Review\n\n"
-                "- **Risk Tier**: `CRITICAL_ROOT` (High blast-radius centrality: S(v)=0.64)\n"
-                "- **Invariant Verdict**: **PASS** (Zero destructions)\n"
-                "- **Protected Resources**: `aws_vpc.core`, `aws_subnet.app`\n"
-                "- **Human Intervention Mandatory**: Foundational blast-radius root modified."
-            ),
-            created_at=datetime.now(timezone.utc).isoformat(),
-        )
-        self._prs[sample_agent_pr.id] = sample_agent_pr
-        self._prs[sample_critical_pr.id] = sample_critical_pr
-
     def list_prs(self) -> List[StagedPR]:
-        return sorted(self._prs.values(), key=lambda p: p.created_at, reverse=True)
+        rows = self.db.list_prs()
+        return [StagedPR(**r) for r in rows]
 
     def get_pr(self, pr_id: str) -> Optional[StagedPR]:
-        return self._prs.get(pr_id)
+        item = self.db.get_pr(pr_id)
+        return StagedPR(**item) if item else None
 
     def stage_pr(self, pr: StagedPR) -> StagedPR:
-        self._prs[pr.id] = pr
-        self._save_to_disk()
-        return pr
+        saved_dict = self.db.upsert_pr(pr.model_dump())
+        saved_pr = StagedPR(**saved_dict)
+        try:
+            from regradar.integrations.dispatcher import WebhookDispatcher
+            WebhookDispatcher.dispatch_event("pr.staged", saved_pr.model_dump())
+        except Exception as e:
+            logger.warning("Failed to dispatch pr.staged webhook event: %s", e)
+        return saved_pr
 
     def review_pr(
         self,
@@ -257,43 +188,52 @@ class GitHubPRStore:
         reviewer: str = "operator",
         comment: Optional[str] = None,
     ) -> Optional[StagedPR]:
-        pr = self._prs.get(pr_id)
-        if not pr:
+        existing = self.get_pr(pr_id)
+        if not existing:
             return None
 
         decision_upper = decision.upper()
-        if decision_upper == "APPROVE":
-            pr.status = "APPROVED"
-        elif decision_upper == "REJECT":
-            pr.status = "REJECTED"
-        elif decision_upper == "REVISE":
-            pr.status = "REVISION_REQUESTED"
-
-        pr.reviewed_by = reviewer
-        pr.reviewed_at = datetime.now(timezone.utc).isoformat()
-        pr.review_comment = comment
 
         # Dispatch real review to GitHub REST API if token configured
         remote_res = dispatch_github_pr_review(
-            repo=pr.repo,
-            pr_number=pr.pr_number,
+            repo=existing.repo,
+            pr_number=existing.pr_number,
             decision=decision_upper,
             reviewer=reviewer,
             comment=comment,
         )
-        if pr.evaluation is not None:
-            pr.evaluation["github_dispatch"] = remote_res
 
-        self._save_to_disk()
-        return pr
+        updated_dict = self.db.update_pr_decision(
+            pr_id=pr_id,
+            decision=decision_upper,
+            reviewer=reviewer,
+            comment=comment,
+            remote_dispatch=remote_res,
+        )
+
+        if updated_dict:
+            updated_pr = StagedPR(**updated_dict)
+            try:
+                from regradar.integrations.dispatcher import WebhookDispatcher
+                WebhookDispatcher.dispatch_event("pr.reviewed", {
+                    "pr_id": pr_id,
+                    "repo": updated_pr.repo,
+                    "pr_number": updated_pr.pr_number,
+                    "decision": decision_upper,
+                    "reviewer": reviewer,
+                    "comment": comment,
+                    "status": updated_pr.status,
+                    "remote_dispatch": remote_res,
+                })
+            except Exception as e:
+                logger.warning("Failed to dispatch pr.reviewed webhook event: %s", e)
+            return updated_pr
+
+        return None
 
     def clear(self) -> None:
-        self._prs.clear()
-        if self.persistence_file and self.persistence_file.exists():
-            try:
-                self.persistence_file.unlink()
-            except Exception:
-                pass
+        self.db.clear_prs()
+
 
 
 class GitHubWebhookHandler:
@@ -407,6 +347,7 @@ class GitHubWebhookHandler:
         pr_id = f"pr-{pr_number}"
         staged = StagedPR(
             id=pr_id,
+            provider="github",
             pr_number=pr_number,
             repo=repo_full,
             title=title,
@@ -479,6 +420,7 @@ class GitHubWebhookHandler:
 
         staged = StagedPR(
             id=pr_id,
+            provider="github",
             pr_number=pr_number,
             repo=repo,
             title=title,

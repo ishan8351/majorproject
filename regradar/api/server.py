@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Optional
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -27,6 +27,10 @@ def create_app(custom_config: Optional[RegRadarConfig] = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon():
+        return Response(status_code=204)
 
     # Mount API routes
     app.include_router(api_router)

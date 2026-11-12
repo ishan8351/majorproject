@@ -27,8 +27,8 @@ def test_server_serves_static_assets(client: TestClient):
 
     theme_res = client.get("/css/theme.css")
     assert theme_res.status_code == 200
-    assert "obsidian" in theme_res.text
-    assert "alabaster" in theme_res.text
+    assert "dark" in theme_res.text
+    assert "light" in theme_res.text
 
     icons_res = client.get("/js/icons.js")
     assert icons_res.status_code == 200
@@ -43,16 +43,32 @@ def test_server_serves_static_assets(client: TestClient):
     assert "TopologyModule" in js_res.text or "AppState" in js_res.text
 
 
-def test_index_html_zero_emojis_and_four_themes(client: TestClient):
+def test_index_html_zero_emojis_and_two_themes(client: TestClient):
     res = client.get("/")
     assert res.status_code == 200
     html = res.text
 
-    # Verify 4 themes exist in segmented picker
-    assert 'data-theme-val="obsidian"' in html
-    assert 'data-theme-val="midnight"' in html
-    assert 'data-theme-val="polar"' in html
-    assert 'data-theme-val="alabaster"' in html
+    # Verify 2 themes exist in segmented picker (Dark & Light)
+    assert 'data-theme-val="dark"' in html
+    assert 'data-theme-val="light"' in html
+    assert '<span>Dark</span>' in html
+    assert '<span>Light</span>' in html
+    assert 'Creme Dark' not in html
+    assert 'Yellowish Light' not in html
+    assert 'data-theme-val="obsidian"' not in html
+    assert 'data-theme-val="polar"' not in html
+
+    # Verify Landing Page & Dashboard views exist
+    assert 'id="landingView"' in html
+    assert 'id="dashboardView"' in html
+
+    # Verify deterministic solver removed from frontend
+    assert 'Deterministic Mock' not in html
+    assert 'Deterministic Rule Solver' not in html
+
+    # Verify diagram search and controls exist
+    assert 'id="topoNodeSearch"' in html
+    assert 'focusActiveNode()' in html
 
     # Verify GitHub nav tab and view exist
     assert 'data-tab="github"' in html

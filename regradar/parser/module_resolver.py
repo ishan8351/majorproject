@@ -152,7 +152,7 @@ class ModuleResolver:
         # Discover all .tf files in the module directory (skip hidden files)
         tf_files = [
             f for f in target_dir.glob("*.tf")
-            if not any(part.startswith(".") for part in f.parts)
+            if not any(part.startswith(".") for part in f.relative_to(target_dir).parts)
         ]
 
         # Extract explicit module-level depends_on from caller

@@ -2,10 +2,47 @@
 
 window.SandboxModule = (function () {
   async function load() {
-    // Initial view
+    if (!AppState.currentWorkspace) {
+      renderEmptyState();
+    }
+  }
+
+  function renderEmptyState() {
+    const banner = document.getElementById("sandboxVerdictBanner");
+    if (banner) {
+      banner.className = "p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center justify-between mb-6";
+      banner.innerHTML = `
+        <div class="flex items-center space-x-3">
+          <span class="text-amber-400 shrink-0">${window.RegIcons.svg('shield', 'w-6 h-6')}</span>
+          <div>
+            <div class="font-bold text-sm text-slate-100">No Remote Repository Connected</div>
+            <div class="text-xs text-slate-400 mt-0.5">Connect a GitHub or GitLab repository to run isolated dry-run simulations and evaluate plan diff invariants.</div>
+          </div>
+        </div>
+        <button onclick="switchTab('github')" class="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold cursor-pointer shrink-0">Connect Repository</button>
+      `;
+    }
+    const cEl = document.getElementById("sandboxCreatedCount");
+    const uEl = document.getElementById("sandboxUpdatedCount");
+    const dEl = document.getElementById("sandboxDeletedCount");
+    const rEl = document.getElementById("sandboxReplacedCount");
+    if (cEl) cEl.textContent = "0";
+    if (uEl) uEl.textContent = "0";
+    if (dEl) dEl.textContent = "0";
+    if (rEl) rEl.textContent = "0";
+    const changesList = document.getElementById("sandboxChangesList");
+    if (changesList) {
+      changesList.innerHTML = `<div class="text-xs text-slate-500 py-4 text-center">No repository connected. Connect a remote repository in CI/CD &amp; Git Webhooks to inspect planned diffs.</div>`;
+    }
   }
 
   async function runSimulation() {
+    if (!AppState.currentWorkspace) {
+      showToast("Connect a remote repository first in CI/CD & Git Webhooks.", "info");
+      renderEmptyState();
+      return;
+    }
+
     const btn = document.getElementById("runSandboxBtn");
     if (btn) {
       btn.disabled = true;

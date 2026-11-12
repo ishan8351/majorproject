@@ -18,11 +18,11 @@ class WorkspaceItem(BaseModel):
 
 
 class ScanRequest(BaseModel):
-    target_path: str
+    target_path: Optional[str] = None
 
 
 class AuditRequest(BaseModel):
-    target_path: str
+    target_path: Optional[str] = None
 
 
 class KnowledgeQueryRequest(BaseModel):
@@ -32,7 +32,7 @@ class KnowledgeQueryRequest(BaseModel):
 
 
 class ReviewStagedRequest(BaseModel):
-    target_path: str
+    target_path: Optional[str] = None
 
 
 class ReviewStagedItem(BaseModel):
@@ -67,7 +67,7 @@ class ReviewStagedResponse(BaseModel):
 
 
 class ReviewDecisionRequest(BaseModel):
-    target_path: str
+    target_path: Optional[str] = None
     resource_id: str
     check_id: str
     decision: str  # "APPROVE", "REJECT", "SKIP"
@@ -84,18 +84,18 @@ class ReviewDecisionResponse(BaseModel):
 
 
 class RemediationRequest(BaseModel):
-    target_path: str
+    target_path: Optional[str] = None
     apply: bool = False
     provider: Optional[str] = None
 
 
 class SandboxVerifyRequest(BaseModel):
-    target_path: str
+    target_path: Optional[str] = None
     modified_files: Optional[Dict[str, str]] = None
 
 
 class BenchmarkRunRequest(BaseModel):
-    target_path: str
+    target_path: Optional[str] = None
     benchmark_name: Optional[str] = None
     include_ablation: bool = True
 

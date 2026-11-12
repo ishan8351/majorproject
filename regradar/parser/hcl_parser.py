@@ -106,7 +106,7 @@ class HCLParser:
         pattern = "**/*.tf" if recursive else "*.tf"
         tf_files = [
             f for f in directory.glob(pattern)
-            if not any(part.startswith(".") for part in f.parts)  # ignore .terraform, etc.
+            if not any(part.startswith(".") for part in f.relative_to(directory).parts)  # ignore .terraform, etc.
         ]
 
         # Phase 1: Ingest all resources, data sources, and modules from all files

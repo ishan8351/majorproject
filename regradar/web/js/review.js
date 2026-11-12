@@ -6,6 +6,20 @@ window.ReviewModule = (function () {
   let decisionsHistory = [];
 
   async function load() {
+    if (!AppState.currentWorkspace) {
+      updateCounters({ auto_staged_count: 0, pending_human_count: 0, total_violations: 0 });
+      const container = document.getElementById("reviewQueueList");
+      if (container) {
+        container.innerHTML = `
+          <div class="p-6 text-center text-xs text-slate-400">
+            No remote repository connected. Connect a GitHub or GitLab repository to view operator review queues.
+          </div>
+        `;
+      }
+      renderEmptyState();
+      return;
+    }
+
     try {
       showLoading(true);
       const targetPath = AppState.currentWorkspace;
@@ -70,11 +84,11 @@ window.ReviewModule = (function () {
   }
 
   function selectItem(idx) {
+    if (!stagedData || !stagedData.items || !stagedData.items[idx]) return;
     activeIndex = idx;
     renderQueue(stagedData);
 
     const item = stagedData.items[idx];
-    if (!item) return;
 
     // Render Review Detail Panel
     document.getElementById("reviewActiveResourceId").textContent = item.resource_id;
@@ -85,7 +99,7 @@ window.ReviewModule = (function () {
     const modelTag = document.getElementById("reviewActiveModelTag");
     if (modelTag) {
       const s = window.AppState && window.AppState.settings;
-      const m = (s && s.current_model) || "Deterministic Mock";
+      const m = (s && s.current_model) || "gemini-4-argon";
       const modelDisplayName = (window.getModelDisplayName && s) ? window.getModelDisplayName(s.current_provider, m) : m;
       modelTag.textContent = `Synthesized by: ${modelDisplayName}`;
     }
@@ -99,7 +113,7 @@ window.ReviewModule = (function () {
           <div class="flex items-start space-x-3">
             <span class="text-rose-400 mt-0.5">${window.RegIcons.svg('alert', 'w-5 h-5')}</span>
             <div>
-              <div class="font-bold text-sm text-rose-300">High-Risk Infrastructure Node — Security Sign-Off Required</div>
+              <div class="font-bold text-sm text-rose-300">High-Risk Infrastructure Node: Security Sign-Off Required</div>
               <div class="text-xs text-rose-400 mt-1">
                 Resource '${item.resource_id}' is rated <span class="font-mono font-bold">${item.risk_tier}</span> with a composite risk score of 
                 <span class="font-bold">${Number(item.blast_radius_score || 0).toFixed(4)}</span> and ${item.descendant_count} cascading downstream dependents.
@@ -114,7 +128,7 @@ window.ReviewModule = (function () {
           <div class="flex items-start space-x-3">
             <span class="text-emerald-400 mt-0.5">${window.RegIcons.svg('check', 'w-5 h-5')}</span>
             <div>
-              <div class="font-bold text-sm text-emerald-300">Low-Blast Radius Component — Approved for Autonomous Repair</div>
+              <div class="font-bold text-sm text-emerald-300">Low-Blast Radius Component: Approved for Autonomous Repair</div>
               <div class="text-xs text-emerald-400 mt-1">
                 Resource '${item.resource_id}' is a <span class="font-mono font-bold">${item.risk_tier}</span> with zero downstream dependents.
                 Pre-flight execution plan diff verified zero resource recreations.
@@ -139,8 +153,15 @@ window.ReviewModule = (function () {
   }
 
   async function submitDecision(decision) {
+    if (!AppState.currentWorkspace) {
+      showToast("Connect a remote repository first in CI/CD & Git Webhooks.", "info");
+      return;
+    }
+    if (!stagedData || !stagedData.items || !stagedData.items[activeIndex]) {
+      showToast("No staged review item selected.", "info");
+      return;
+    }
     const item = stagedData.items[activeIndex];
-    if (!item) return;
 
     const apply = document.getElementById("reviewApplyToggle")?.checked || false;
 

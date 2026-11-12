@@ -149,8 +149,8 @@ class SwarmConfig(BaseModel):
 class LLMConfig(BaseModel):
     """LLM client and agent swarm configuration."""
     provider: str = Field(
-        default="mock",
-        description="Active provider: 'mock', 'openai', 'anthropic', 'gemini', 'deepseek', 'ollama'.",
+        default="gemini",
+        description="Active provider: 'gemini', 'openai', 'anthropic', 'deepseek', 'ollama'.",
     )
     openai: OpenAIProviderConfig = Field(default_factory=OpenAIProviderConfig)
     anthropic: AnthropicProviderConfig = Field(default_factory=AnthropicProviderConfig)

@@ -15,6 +15,7 @@ from regradar.remediation.state_machine import (
     SwarmStateMachine,
 )
 from regradar.remediation.scanner import CheckovScanner
+from regradar.remediation.policy_engine import CompositePolicyEngine, CheckovPolicyEngine, OPAPolicyEngine, RegRadarASTEngine
 from regradar.remediation.knowledge_base import RegulatoryKnowledgeBase
 from regradar.remediation.agents import (
     AuditorAgent,
@@ -34,6 +35,10 @@ __all__ = [
     "StateTransition",
     "SwarmStateMachine",
     "CheckovScanner",
+    "CompositePolicyEngine",
+    "CheckovPolicyEngine",
+    "OPAPolicyEngine",
+    "RegRadarASTEngine",
     "RegulatoryKnowledgeBase",
     "AuditorAgent",
     "PolicyPlannerAgent",
