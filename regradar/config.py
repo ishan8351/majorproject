@@ -97,16 +97,16 @@ class CentralityConfig(BaseModel):
 
 
 class OpenAIProviderConfig(BaseModel):
-    """OpenAI API provider configuration."""
-    model: str = Field(default="gpt-6-sol", description="Target OpenAI model name (e.g., gpt-6-sol, gpt-6-astra, gpt-6.1-terra, gpt-6-luna).")
+    """OpenAI API provider configuration (e.g., gpt-6-astra, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-oss-120b, o3-mini, gpt-4o)."""
+    model: str = Field(default="gpt-6-astra", description="Target OpenAI model name (e.g., gpt-6-astra, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-oss-120b, o3-mini, gpt-4o).")
     base_url: str = Field(default="https://api.openai.com/v1", description="OpenAI API base URL.")
     timeout: float = Field(default=30.0, description="HTTP request timeout in seconds.")
     api_key: Optional[str] = Field(default=None, description="OpenAI API key (or from OPENAI_API_KEY).")
 
 
 class AnthropicProviderConfig(BaseModel):
-    """Anthropic API provider configuration."""
-    model: str = Field(default="claude-sonnet-5-5", description="Target Anthropic model name (e.g., claude-sonnet-5-5, claude-opus-5-5, claude-fable-5-2, claude-haiku-5-5).")
+    """Anthropic API provider configuration (e.g., claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5)."""
+    model: str = Field(default="claude-sonnet-5-5", description="Target Anthropic model name (e.g., claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5, claude-3-7-sonnet-20250219).")
     base_url: str = Field(default="https://api.anthropic.com/v1", description="Anthropic API base URL.")
     timeout: float = Field(default=30.0, description="HTTP request timeout in seconds.")
     version: str = Field(default="2023-06-01", description="Anthropic API protocol version header.")
@@ -114,15 +114,15 @@ class AnthropicProviderConfig(BaseModel):
 
 
 class OllamaProviderConfig(BaseModel):
-    """Local Ollama LLM provider configuration."""
-    model: str = Field(default="llama3.3", description="Target Ollama model name (e.g., llama3.3, qwen2.5-coder:32b, deepseek-r1:8b).")
+    """Local Ollama LLM provider configuration (e.g., qwen3-coder, qwen3.8, gpt-oss:20b, gpt-oss:120b, nemotron-3.5-lightning, llama3.3)."""
+    model: str = Field(default="qwen3-coder", description="Target Ollama model name (e.g., qwen3-coder, qwen3.8, gpt-oss:20b, gpt-oss:120b, nemotron-3.5-lightning, llama3.3).")
     base_url: str = Field(default="http://localhost:11434", description="Ollama API base URL.")
     timeout: float = Field(default=60.0, description="HTTP request timeout in seconds.")
 
 
 class GeminiProviderConfig(BaseModel):
-    """Google Gemini API provider configuration (e.g., gemini-4-argon, gemini-3.8-flash, gemini-4-carbon)."""
-    model: str = Field(default="gemini-4-argon", description="Target Gemini model name (e.g., gemini-4-argon, gemini-3.8-flash, gemini-4-carbon).")
+    """Google Gemini API provider configuration (e.g., gemini-4-argon, gemini-4-carbon, gemini-4-hydrogen, gemini-3.8-flash, gemini-3.5-flash-lite)."""
+    model: str = Field(default="gemini-4-argon", description="Target Gemini model name (e.g., gemini-4-argon, gemini-4-carbon, gemini-4-hydrogen, gemini-3.8-flash, gemini-3.5-flash-lite, gemini-2.5-pro, gemini-2.5-flash).")
     base_url: str = Field(
         default="https://generativelanguage.googleapis.com/v1beta",
         description="Google Generative Language API base URL.",
@@ -132,8 +132,8 @@ class GeminiProviderConfig(BaseModel):
 
 
 class DeepSeekProviderConfig(BaseModel):
-    """DeepSeek API provider configuration (e.g., deepseek-v4-pro, deepseek-flash)."""
-    model: str = Field(default="deepseek-v4-pro", description="Target DeepSeek model name (e.g., deepseek-v4-pro, deepseek-flash).")
+    """DeepSeek API provider configuration (e.g., deepseek-v4-pro, deepseek-flash, deepseek-reasoner, deepseek-chat)."""
+    model: str = Field(default="deepseek-v4-pro", description="Target DeepSeek model name (e.g., deepseek-v4-pro, deepseek-flash, deepseek-reasoner, deepseek-chat).")
     base_url: str = Field(default="https://api.deepseek.com", description="DeepSeek API base URL.")
     timeout: float = Field(default=30.0, description="HTTP request timeout in seconds.")
     api_key: Optional[str] = Field(default=None, description="DeepSeek API key (or from DEEPSEEK_API_KEY).")

@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RegRadar | Terraform Safety and Governance Console</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230284c7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/%3E%3C/svg%3E">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Cytoscape.js & Dagre for Graph Visualization -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
+  <!-- Mermaid for Architecture Diagrams -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <!-- Clean Geometric Sans & Technical Monospace Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Custom Style & Two Curated Professional Themes -->
+  <link rel="stylesheet" href="/css/theme.css?v=2026.5">
+  <link rel="stylesheet" href="/css/style.css?v=2026.5">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            creme: {
+              50: '#fdfbf7',
+              100: '#fbf7ea',
+              200: '#f6efe0',
+              800: '#2d2822',
+              900: '#1d1a16',
+              950: '#151311',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+
+<div id="dashboardView" class="flex flex-col h-screen overflow-hidden relative">
+    <!-- Dashboard Ambient Moving Blur Mesh -->
+    <div class="ambient-blur-container" aria-hidden="true">
+      <div class="ambient-orb ambient-orb-1"></div>
+      <div class="ambient-orb ambient-orb-2"></div>
+      <div class="ambient-orb ambient-orb-3"></div>
+    </div>
+
+    <!-- TOP HEADER NAVBAR -->
+    <header class="h-14 border-b border-slate-800 bg-slate-900/90 backdrop-blur px-4 flex items-center justify-between shrink-0 z-20">
+      <!-- Brand Logo & Title Link (Returns to Landing Page) -->
+      <a href="/" onclick="if(window.location.protocol==='file:'){this.href='index.html';}" class="flex items-center space-x-3 text-left group cursor-pointer focus:outline-none" title="Return to Home">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center font-bold text-white shadow-lg shadow-amber-500/20 group-hover:scale-105 transition-transform">
+          R
+        </div>
+        <div>
+          <div class="font-bold text-sm tracking-wide text-white group-hover:text-amber-300 transition-colors">
+            <span>RegRadar</span>
+          </div>
+          <div class="text-[10px] text-slate-400 font-medium">Infrastructure Governance</div>
+        </div>
+      </a>
+
+      <!-- Center: Organic Workspace Selector with Built-In Search -->
+      <div class="relative" id="workspaceDropdownContainer">
+        <select id="workspaceSelector" class="hidden" aria-hidden="true"></select>
+
+        <button type="button" id="workspaceDropdownTrigger" class="workspace-organic-trigger flex items-center space-x-2 px-3 py-1.5 rounded-xl border border-slate-700/80 bg-slate-800/80 hover:bg-slate-700/80 transition-all text-xs cursor-pointer focus:outline-none">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Target:</span>
+          <span id="workspaceDropdownLabel" class="font-mono text-slate-200 font-semibold truncate max-w-[170px] md:max-w-[240px]">Loading workspace...</span>
+          <span id="workspaceDropdownCount" class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">0 res</span>
+          <svg id="workspaceDropdownChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+
+        <!-- Floating Organic Dropdown Panel -->
+        <div id="workspaceDropdownMenu" class="workspace-organic-menu hidden absolute left-0 top-full mt-2 w-80 md:w-96 rounded-2xl border border-slate-700/90 bg-slate-900/95 backdrop-blur-xl p-2.5 z-50 shadow-2xl space-y-2">
+          <!-- Search Header -->
+          <div class="relative">
+            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="workspaceSearchInput" type="text" placeholder="Search connected repositories..." autocomplete="off" class="w-full pl-8 pr-7 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 placeholder-slate-500 font-mono focus:outline-none focus:border-amber-500">
+            <button id="workspaceSearchClear" type="button" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer">
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
+          <!-- Repositories List -->
+          <div id="workspaceDropdownList" class="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+            <!-- Rendered by JS -->
+          </div>
+
+          <!-- Empty State -->
+          <div id="workspaceDropdownEmpty" class="hidden py-4 text-center text-xs text-slate-500 font-mono">
+            No matching repositories found.
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: LLM Provider, Settings & Two-Theme Segmented Switcher -->
+      <div class="flex items-center space-x-3">
+        <!-- Active Model Button -->
+        <button class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 transition cursor-pointer text-left group" id="openSettingsBtn" title="Model Configuration">
+          <svg class="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span id="providerBadge" class="text-xs font-semibold text-slate-200">
+            Loading...
+          </span>
+          <svg class="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+
+        <!-- 2-Theme Segmented Control Switcher -->
+        <div class="theme-segmented-group" id="themePicker" title="Two Curated Professional Themes">
+          <button class="theme-pill-btn active" data-theme-val="dark" title="Dark Theme">
+            <span>Dark</span>
+          </button>
+          <button class="theme-pill-btn" data-theme-val="light" title="Light Theme">
+            <span>Light</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN BODY LAYOUT -->
+    <div class="flex flex-1 overflow-hidden">
+
+      <!-- LEFT SIDEBAR NAVIGATION -->
+      <aside class="w-64 border-r border-slate-800 bg-slate-900/60 p-3 flex flex-col justify-between shrink-0">
+        <div class="space-y-1">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-3 py-2">Analysis</div>
+
+          <button data-tab="topology" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium border transition text-left cursor-pointer">
+            <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <span>Resource Graph</span>
+          </button>
+
+          <button data-tab="compliance" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium border transition text-left cursor-pointer">
+            <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+            <span>Compliance Issues</span>
+          </button>
+
+          <button data-tab="review" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium border transition text-left cursor-pointer">
+            <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            <span>Review Queue</span>
+          </button>
+
+          <button data-tab="swarm" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium border transition text-left cursor-pointer">
+            <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+            <span>Agent Fixes</span>
+          </button>
+
+          <button data-tab="sandbox" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium border transition text-left cursor-pointer">
+            <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Sandbox Verification</span>
+          </button>
+
+          <button data-tab="benchmark" class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-xs font-medium border transition text-left cursor-pointer">
+            <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Benchmark Comparison</span>
+          </button>
+
+          <div class="pt-3 pb-1">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-3 py-1">Integrations</div>
+          </div>
+
+          <button data-tab="github" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium border transition text-left cursor-pointer">
+            <div class="flex items-center space-x-3">
+              <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M18 6v6a6 6 0 0 1-6 6H6"/><circle cx="18" cy="6" r="3"/></svg>
+              <span>Git Webhooks</span>
+            </div>
+            <span id="githubNavBadge" class="hidden px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40"></span>
+          </button>
+
+          <button data-tab="queue" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium border transition text-left cursor-pointer">
+            <div class="flex items-center space-x-3">
+              <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              <span>Staging Queue</span>
+            </div>
+            <span id="queueNavBadge" class="hidden px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40"></span>
+          </button>
+        </div>
+      </aside>
+
+      <!-- MAIN VIEW AREA -->
+      <main class="flex-1 overflow-y-auto relative bg-slate-950">
+
+        <!-- ==================== VIEW 1: TOPOLOGY & DAG ==================== -->
+        <div id="view-topology" class="view-container h-full flex flex-col">
+          <!-- Top Control & Search Bar -->
+          <div class="border-b border-slate-800 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0 bg-slate-900/50 backdrop-blur">
+            <!-- Left: Title, Stats & Search Input -->
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold uppercase text-slate-300 tracking-wider">Dependency DAG</span>
+                <span class="text-[11px] text-slate-400 font-mono">
+                  <span id="summaryResourceCount" class="font-bold text-white">0</span> resources &bull;
+                  <span id="summaryDependencyCount" class="font-bold text-white">0</span> edges
+                </span>
+              </div>
+
+              <!-- Node Search Control -->
+              <div class="relative flex items-center">
+                <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input id="topoNodeSearch" type="text" placeholder="Search node (name, type)..." oninput="window.TopologyModule.searchNode(this.value)" class="w-48 md:w-56 bg-slate-950 border border-slate-700/80 rounded-lg pl-8 pr-7 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono">
+                <button onclick="document.getElementById('topoNodeSearch').value=''; window.TopologyModule.clearSearch();" title="Clear Search" class="absolute right-2 text-slate-400 hover:text-slate-200 cursor-pointer">
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <span id="topoSearchMatchCount" class="hidden text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30"></span>
+            </div>
+
+            <!-- Center: Risk Tier Quick Filter Buttons -->
+            <div id="topoFilterGroup" class="flex items-center space-x-1 p-0.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
+              <button onclick="window.TopologyModule.filterTier('ALL')" id="topoFilterAll" class="topo-filter-btn active px-2.5 py-1 rounded text-xs font-semibold text-slate-200 transition cursor-pointer">All</button>
+              <button onclick="window.TopologyModule.filterTier('CRITICAL_ROOT')" id="topoFilterCritical" class="topo-filter-btn px-2.5 py-1 rounded text-xs font-semibold text-rose-400 hover:text-rose-300 transition cursor-pointer">Critical</button>
+              <button onclick="window.TopologyModule.filterTier('INTERMEDIATE')" id="topoFilterIntermediate" class="topo-filter-btn px-2.5 py-1 rounded text-xs font-semibold text-amber-400 hover:text-amber-300 transition cursor-pointer">Intermediate</button>
+              <button onclick="window.TopologyModule.filterTier('LEAF_SAFE')" id="topoFilterLeaf" class="topo-filter-btn px-2.5 py-1 rounded text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition cursor-pointer">Leaf Safe</button>
+            </div>
+
+            <!-- Right: Layout Orientation, Camera Center & Zoom Controls, Export -->
+            <div class="flex items-center space-x-2">
+              <!-- Layout Orientation Selector -->
+              <div class="flex items-center border border-slate-700/80 rounded-lg overflow-hidden">
+                <button onclick="window.TopologyModule.setOrientation('TB')" id="topoOrientTB" title="Top-to-Bottom Layout" class="px-2.5 py-1 text-xs bg-slate-800 text-amber-400 border-r border-slate-700/80 font-semibold cursor-pointer">Top-Down</button>
+                <button onclick="window.TopologyModule.setOrientation('LR')" id="topoOrientLR" title="Left-to-Right Layout" class="px-2.5 py-1 text-xs bg-slate-900 hover:bg-slate-800 text-slate-300 font-medium cursor-pointer">Left-Right</button>
+              </div>
+
+              <!-- Camera Center & Fit -->
+              <button onclick="window.TopologyModule.centerGraph()" title="Center Graph in Viewport" class="px-2.5 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium flex items-center gap-1 cursor-pointer">
+                <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>
+                <span>Center</span>
+              </button>
+              <button onclick="window.TopologyModule.fit()" title="Fit Whole Graph" class="px-2.5 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium cursor-pointer">Fit View</button>
+
+              <!-- Zoom Controls with Threshold Display -->
+              <div class="flex items-center border border-slate-700/80 rounded-lg overflow-hidden">
+                <button onclick="window.TopologyModule.zoomOut()" title="Zoom Out (Smooth)" class="px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border-r border-slate-700/80 font-bold cursor-pointer">-</button>
+                <span id="topoZoomDisplay" class="px-2 py-1 text-[11px] font-mono text-slate-300 bg-slate-900 border-r border-slate-700/80 min-w-[42px] text-center">100%</span>
+                <button onclick="window.TopologyModule.zoomIn()" title="Zoom In (Smooth)" class="px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer">+</button>
+              </div>
+
+              <!-- Export Graph -->
+              <div class="flex items-center space-x-1">
+                <button onclick="window.TopologyModule.exportGraph('mermaid')" class="px-2 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium cursor-pointer">Mermaid</button>
+                <button onclick="window.TopologyModule.exportGraph('dot')" class="px-2 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium cursor-pointer">DOT</button>
+                <button onclick="window.TopologyModule.exportGraph('json')" class="px-2 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium cursor-pointer">JSON</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Canvas and Inspector -->
+          <div class="flex-1 relative overflow-hidden" id="cyContainer">
+            <div id="cy" class="graph-stabilizing"></div>
+
+            <!-- Beautiful Blurred Loading Overlay -->
+            <div id="topologyLoader" class="blurred-loader-overlay absolute inset-0 flex flex-col items-center justify-center z-20 hidden">
+              <div class="relative flex flex-col items-center p-8 rounded-2xl bg-slate-900/85 border border-slate-800/90 shadow-2xl backdrop-blur-xl max-w-md text-center">
+                <div class="relative w-14 h-14 mb-4 flex items-center justify-center">
+                  <div class="absolute inset-0 rounded-full bg-amber-500/20 animate-ping"></div>
+                  <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-500/20 to-cyan-500/20 border border-amber-500/40 flex items-center justify-center shadow-lg shadow-amber-500/10">
+                    <svg class="w-6 h-6 text-amber-400 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                    </svg>
+                  </div>
+                </div>
+                <div class="text-sm font-bold text-white mb-1.5 text-fusion">Loading Resource Graph</div>
+                <p class="text-xs text-slate-400 mb-4 max-w-xs leading-relaxed">Mapping resource relationships and safety gates...</p>
+                <div class="w-48 h-1 rounded-full bg-slate-800 overflow-hidden relative">
+                  <div class="h-full bg-gradient-to-r from-amber-500 to-cyan-500 w-1/2 rounded-full animate-loader-bar"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Node Detail Inspector Drawer -->
+            <div id="nodeInspector" class="absolute right-4 top-4 w-84 bg-slate-900/95 backdrop-blur-md rounded-xl border border-slate-800 shadow-2xl p-4 z-10 hidden max-h-[calc(100%-2rem)] overflow-y-auto">
+              <div class="flex justify-between items-start mb-2.5">
+                <div>
+                  <div id="inspectNodeId" class="font-mono text-xs font-bold text-white break-all"></div>
+                  <div id="inspectNodeType" class="font-mono text-[10px] text-slate-400 mt-0.5"></div>
+                </div>
+                <button onclick="window.TopologyModule.hideNodeInspector()" class="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition cursor-pointer">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+
+              <!-- Quick Focus Button -->
+              <button onclick="window.TopologyModule.focusActiveNode()" class="w-full mb-3 py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>
+                <span>Center &amp; Zoom to Node</span>
+              </button>
+
+              <div class="mb-3">
+                <span id="inspectNodeRisk" class="px-2 py-0.5 rounded text-xs font-bold"></span>
+              </div>
+
+              <div class="space-y-1.5 text-xs">
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="text-slate-400">Cascading Descendants:</span>
+                  <span id="inspectDescendants" class="font-bold text-slate-200"></span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="text-slate-400">Upstream Ancestors:</span>
+                  <span id="inspectAncestors" class="font-bold text-slate-200"></span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="text-slate-400">Betweenness Centrality:</span>
+                  <span id="inspectBetweenness" class="font-mono text-slate-200"></span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="text-slate-400">Eigenvector Centrality:</span>
+                  <span id="inspectEigenvector" class="font-mono text-slate-200"></span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="text-slate-400">PageRank:</span>
+                  <span id="inspectPageRank" class="font-mono text-slate-200"></span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                  <span class="text-slate-400 font-semibold">Composite Blast Risk:</span>
+                  <span id="inspectBlastScore" class="font-mono font-bold text-amber-400"></span>
+                </div>
+                <div class="flex justify-between py-1">
+                  <span class="text-slate-400">Automated Remediation:</span>
+                  <span id="inspectAutoRemediate"></span>
+                </div>
+              </div>
+
+              <!-- Interactive Dependents & Prerequisites List -->
+              <div id="inspectDependenciesList" class="mt-2"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== VIEW 2: COMPLIANCE & GRAPHRAG ==================== -->
+        <div id="view-compliance" class="view-container p-6 space-y-6 hidden">
+          <!-- Policy Engines Live Status Bar -->
+          <div id="policyEnginesBar" class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-3">
+              <div class="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-white flex items-center gap-2">
+                  <span>Live Policy Engines</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Active</span>
+                </div>
+                <div class="text-xs text-slate-400 mt-0.5">Checkov linter, Open Policy Agent (OPA), and RegRadar rule engine.</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2" id="policyEnginesPills">
+              <!-- Dynamically rendered by compliance.js -->
+            </div>
+          </div>
+
+          <!-- Stats Row -->
+          <div class="grid grid-cols-5 gap-4">
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">Total Misconfigurations</div>
+              <div id="statTotalViolations" class="text-2xl font-bold text-white mt-1">0</div>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">HIPAA Controls</div>
+              <div id="statHipaaCount" class="text-2xl font-bold text-amber-400 mt-1">0</div>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">GDPR Art. 32</div>
+              <div id="statGdprCount" class="text-2xl font-bold text-blue-400 mt-1">0</div>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">NIST SP 800-53</div>
+              <div id="statNistCount" class="text-2xl font-bold text-purple-400 mt-1">0</div>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">PCI-DSS</div>
+              <div id="statPciCount" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+            </div>
+          </div>
+
+          <!-- GraphRAG Query Box -->
+          <div class="p-4 rounded-xl bg-slate-900 border border-slate-800" id="graphRagQueryBox">
+            <div class="text-xs font-bold text-amber-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <span>Regulatory Rule Search</span>
+            </div>
+            <div class="flex space-x-2">
+              <input type="text" id="ragSearchInput" placeholder="Search compliance rules (e.g., 'S3 encryption at rest')..." class="flex-1 bg-slate-950 border border-slate-700 px-3 py-2 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-amber-500 font-medium">
+              <button onclick="window.ComplianceModule.executeGraphRagSearch()" class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition cursor-pointer">Search Rules</button>
+            </div>
+            <div id="ragSearchResults" class="mt-3"></div>
+          </div>
+
+          <!-- Table Filters & Search -->
+          <div class="flex items-center justify-between">
+            <input type="text" id="complianceSearchInput" oninput="window.ComplianceModule.filterTable()" placeholder="Search violations, rules, or resources..." class="w-80 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs text-slate-200 focus:outline-none">
+            <select id="complianceFrameworkFilter" onchange="window.ComplianceModule.filterTable()" class="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg text-xs text-slate-200 focus:outline-none">
+              <option value="all">All Frameworks</option>
+              <option value="HIPAA">HIPAA</option>
+              <option value="GDPR">GDPR</option>
+              <option value="NIST">NIST SP 800-53</option>
+              <option value="PCI">PCI-DSS</option>
+            </select>
+          </div>
+
+          <!-- Violations Table -->
+          <div class="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/40">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-900 border-b border-slate-800 text-slate-400 font-semibold">
+                  <th class="py-3 px-4">Compliance Check ID</th>
+                  <th class="py-3 px-4">Resource Identifier</th>
+                  <th class="py-3 px-4">Frameworks</th>
+                  <th class="py-3 px-4">File Path</th>
+                  <th class="py-3 px-4 text-right">Grounding</th>
+                </tr>
+              </thead>
+              <tbody id="complianceTableBody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Statutory Grounding Drawer -->
+          <div id="groundingDrawer" class="fixed right-0 top-0 bottom-0 w-96 bg-slate-900/95 backdrop-blur-xl border-l border-slate-800 p-6 shadow-2xl z-30 hidden overflow-y-auto">
+            <div class="flex justify-between items-center pb-4 border-b border-slate-800 mb-4">
+              <div class="text-sm font-bold text-white">Rule Details</div>
+              <button onclick="window.ComplianceModule.closeGroundingDrawer()" class="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div class="space-y-3">
+              <div>
+                <div id="groundingCheckId" class="font-mono text-amber-400 font-bold text-sm"></div>
+                <div id="groundingCheckName" class="text-xs text-slate-300 mt-1"></div>
+              </div>
+              <div class="text-xs text-slate-400">Target Resource: <strong id="groundingResource" class="text-slate-200 font-mono"></strong></div>
+              <div id="groundingPathContent" class="mt-4 space-y-3"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== VIEW 3: OPERATOR REVIEW QUEUE ==================== -->
+        <div id="view-review" class="view-container p-6 space-y-6 hidden">
+          <!-- Review Metrics Header -->
+          <div class="grid grid-cols-3 gap-4">
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center">
+              <div>
+                <div class="text-[11px] font-bold uppercase text-slate-500">Safe to Apply</div>
+                <div id="reviewAutoCount" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+              </div>
+              <svg class="w-6 h-6 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center">
+              <div>
+                <div class="text-[11px] font-bold uppercase text-slate-500">Needs Approval</div>
+                <div id="reviewPendingCount" class="text-2xl font-bold text-rose-400 mt-1">0</div>
+              </div>
+              <svg class="w-6 h-6 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800 flex justify-between items-center">
+              <div>
+                <div class="text-[11px] font-bold uppercase text-slate-500">Total Staged Items</div>
+                <div id="reviewTotalCount" class="text-2xl font-bold text-white mt-1">0</div>
+              </div>
+              <svg class="w-6 h-6 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+          </div>
+
+          <!-- Persistence State Bar -->
+          <div class="flex items-center justify-between text-xs text-slate-400 px-1 py-1">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800/80 border border-slate-700 text-slate-300 font-mono text-[11px]">
+                <svg class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                <span>SQLite DB: Active</span>
+              </span>
+              <span class="text-slate-500">&bull;</span>
+              <span>Zero-destruction safety boundary verified</span>
+            </div>
+            <div class="text-[11px] text-slate-500 font-mono">
+              Webhooks: Ready
+            </div>
+          </div>
+
+          <!-- Review Workspace Split (Queue List & Diff Viewer) -->
+          <div class="grid grid-cols-12 gap-6 h-[calc(100vh-250px)]">
+            <!-- Left: Staged Items Queue & Decisions History -->
+            <div class="col-span-4 border border-slate-800 rounded-xl bg-slate-900/60 p-3 overflow-y-auto flex flex-col justify-between">
+              <div>
+                <div class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2 px-1">Review Queue</div>
+                <div id="reviewQueueList" class="overflow-y-auto max-h-72">
+                  <!-- Populated by JS -->
+                </div>
+              </div>
+
+              <!-- Session Decisions History -->
+              <div class="pt-3 border-t border-slate-800 mt-4">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 px-1">Session Audit Trail</div>
+                <div id="reviewHistoryList" class="space-y-1 overflow-y-auto max-h-36">
+                  <div class="text-xs text-slate-500 py-2">No decisions recorded in this session.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Diff Inspector & Decision Panel -->
+            <div id="reviewDetailContainer" class="col-span-8 border border-slate-800 rounded-xl bg-slate-900 p-5 flex flex-col overflow-hidden">
+              <!-- Warning / Info Banner -->
+              <div id="reviewRiskBanner"></div>
+
+              <!-- Header Info -->
+              <div class="flex justify-between items-start mb-4">
+                <div>
+                  <h3 id="reviewActiveResourceId" class="text-sm font-mono font-bold text-white"></h3>
+                  <div id="reviewActiveCheck" class="text-xs text-slate-400 mt-0.5"></div>
+                </div>
+                <div class="text-right flex flex-col items-end space-y-1">
+                  <div class="flex items-center space-x-1.5">
+                    <span id="reviewActiveStrategy" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30"></span>
+                    <span id="reviewActiveModelTag" class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-mono"></span>
+                  </div>
+                  <div id="reviewActiveStatute" class="text-[10px] text-slate-500"></div>
+                </div>
+              </div>
+
+              <!-- Code Diff View -->
+              <div class="flex-1 grid grid-cols-2 gap-4 overflow-hidden mb-4">
+                <div class="border border-slate-800 rounded-lg bg-slate-950 p-3 flex flex-col overflow-hidden">
+                  <div class="text-[10px] font-bold uppercase text-slate-500 mb-1">Original Configuration</div>
+                  <pre id="diffOriginalCode" class="flex-1 overflow-auto text-xs font-mono text-slate-300"></pre>
+                </div>
+                <div class="border border-slate-800 rounded-lg bg-slate-950 p-3 flex flex-col overflow-hidden">
+                  <div class="text-[10px] font-bold uppercase text-emerald-500 mb-1">Proposed Safe Patch</div>
+                  <pre id="diffModifiedCode" class="flex-1 overflow-auto text-xs font-mono text-emerald-300"></pre>
+                </div>
+              </div>
+
+              <!-- Actions Bar -->
+              <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+                <label class="flex items-center space-x-2 text-xs text-slate-400 cursor-pointer">
+                  <input type="checkbox" id="reviewApplyToggle" class="rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0">
+                  <span>Write approved patch to files</span>
+                </label>
+                <div class="flex space-x-2">
+                  <button onclick="window.ReviewModule.submitDecision('SKIP')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">Skip</button>
+                  <button onclick="window.ReviewModule.submitDecision('REJECT')" class="px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-semibold">Reject</button>
+                  <button onclick="window.ReviewModule.submitDecision('APPROVE')" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Approve &amp; Apply</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== VIEW 4: MULTI-AGENT SWARM ==================== -->
+        <div id="view-swarm" class="view-container p-4 h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)] overflow-hidden flex flex-col space-y-3 hidden">
+          <!-- Control & Engine Header (Compact Row) -->
+          <div class="flex justify-between items-center p-3 rounded-xl bg-slate-900 border border-slate-800 shrink-0 flex-wrap gap-2">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-white flex items-center gap-2">
+                  <span>Remediation Swarm</span>
+                  <span id="swarmActiveModelBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 font-bold"></span>
+                </div>
+                <div class="text-[10px] text-slate-400">Coordinates four agents to plan and test code fixes.</div>
+              </div>
+            </div>
+
+            <!-- Compact Results Metrics & Action Trigger -->
+            <div class="flex items-center space-x-3">
+              <div class="flex items-center space-x-2 text-xs font-mono">
+                <div class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300">
+                  <span class="text-slate-500 text-[10px]">VERIFIED:</span>
+                  <span id="swarmAcceptedCount" class="font-bold text-emerald-400 ml-1">0</span>
+                </div>
+                <div class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300">
+                  <span class="text-slate-500 text-[10px]">GATED:</span>
+                  <span id="swarmEscalatedCount" class="font-bold text-amber-400 ml-1">0</span>
+                </div>
+                <div class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-slate-300">
+                  <span class="text-slate-500 text-[10px]">TOTAL:</span>
+                  <span id="swarmTotalCount" class="font-bold text-white ml-1">0</span>
+                </div>
+              </div>
+
+              <label class="flex items-center space-x-1.5 text-xs text-slate-400 cursor-pointer select-none">
+                <input type="checkbox" id="swarmApplyToggle" class="rounded bg-slate-800 border-slate-700 text-amber-500 focus:ring-0">
+                <span class="text-[11px]">Write to repo</span>
+              </label>
+
+              <button id="runSwarmBtn" onclick="window.SwarmModule.runSwarm()" class="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md shadow-amber-600/20 flex items-center gap-1.5 cursor-pointer transition">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span>Launch Swarm</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Multi-Agent Swarm Graphical Visual Architecture Topology -->
+          <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 shrink-0">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center justify-between">
+              <span>Agent Pipeline</span>
+              <span class="text-cyan-400 font-mono text-[9px]">4 Specialized Agents &bull; Safety Verification Loop</span>
+            </div>
+
+            <div class="grid grid-cols-4 gap-3 relative">
+              <!-- Agent 1: Auditor Agent -->
+              <div id="card-agent-auditor" class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between transition-all duration-300 relative group">
+                <div class="flex items-center justify-between mb-1.5">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-6 h-6 rounded bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <span class="text-xs font-bold text-white">Auditor Agent</span>
+                  </div>
+                  <span id="badge-agent-auditor" class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">IDLE</span>
+                </div>
+                <div class="text-[11px] text-slate-400 line-clamp-1">Evaluates dependency and blast-radius risk</div>
+                <div class="mt-2 text-[10px] font-mono text-slate-500 flex justify-between items-center border-t border-slate-900 pt-1.5">
+                  <span>Risk Scoring</span>
+                  <span class="text-amber-400/80">Gatekeeper</span>
+                </div>
+              </div>
+
+              <!-- Agent 2: Policy Planner Agent -->
+              <div id="card-agent-planner" class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between transition-all duration-300 relative group">
+                <div class="flex items-center justify-between mb-1.5">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-6 h-6 rounded bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                    </div>
+                    <span class="text-xs font-bold text-white">Policy Planner</span>
+                  </div>
+                  <span id="badge-agent-planner" class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">IDLE</span>
+                </div>
+                <div class="text-[11px] text-slate-400 line-clamp-1">Maps regulatory rules to resources</div>
+                <div class="mt-2 text-[10px] font-mono text-slate-500 flex justify-between items-center border-t border-slate-900 pt-1.5">
+                  <span>Rule Search</span>
+                  <span class="text-cyan-400/80">Constraint Plan</span>
+                </div>
+              </div>
+
+              <!-- Agent 3: Synthesizer Agent -->
+              <div id="card-agent-synthesizer" class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between transition-all duration-300 relative group">
+                <div class="flex items-center justify-between mb-1.5">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-6 h-6 rounded bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12"/><path d="m9 12 2 2 4-4"/></svg>
+                    </div>
+                    <span class="text-xs font-bold text-white">Synthesizer Agent</span>
+                  </div>
+                  <span id="badge-agent-synthesizer" class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">IDLE</span>
+                </div>
+                <div class="text-[11px] text-slate-400 line-clamp-1">Generates non-destructive patch code</div>
+                <div class="mt-2 text-[10px] font-mono text-slate-500 flex justify-between items-center border-t border-slate-900 pt-1.5">
+                  <span>Safe Edits</span>
+                  <span class="text-purple-400/80">Additive Patch</span>
+                </div>
+              </div>
+
+              <!-- Agent 4: Supervisor Agent -->
+              <div id="card-agent-supervisor" class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between transition-all duration-300 relative group">
+                <div class="flex items-center justify-between mb-1.5">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-6 h-6 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <span class="text-xs font-bold text-white">Supervisor Agent</span>
+                  </div>
+                  <span id="badge-agent-supervisor" class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">IDLE</span>
+                </div>
+                <div class="text-[11px] text-slate-400 line-clamp-1">Tests plan diffs in a safe dry run</div>
+                <div class="mt-2 text-[10px] font-mono text-slate-500 flex justify-between items-center border-t border-slate-900 pt-1.5">
+                  <span>Plan Check</span>
+                  <span class="text-emerald-400/80">0 Deletions</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Split Console: Live Event Stream & Verified Patches (Fills Remaining Screen Height) -->
+          <div class="flex-1 min-h-0 grid grid-cols-12 gap-3 overflow-hidden">
+            <!-- Left: Live Agent Event Stream Console -->
+            <div class="col-span-7 border border-slate-800 rounded-xl bg-slate-900 p-3 flex flex-col h-full overflow-hidden">
+              <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800/80 shrink-0">
+                <div class="text-xs font-bold uppercase text-slate-300 tracking-wider flex items-center gap-2">
+                  <span>Swarm Execution Console</span>
+                </div>
+                <button onclick="document.getElementById('swarmEventFeed').innerHTML=''" class="text-[10px] text-slate-400 hover:text-slate-200">Clear</button>
+              </div>
+              <div id="swarmEventFeed" class="flex-1 overflow-y-auto space-y-1 font-mono p-2.5 bg-slate-950 rounded-lg border border-slate-800/80 text-xs">
+                <div class="text-xs text-slate-500 italic py-2">Click "Launch Swarm" to run automated compliance checks and fixes.</div>
+              </div>
+            </div>
+
+            <!-- Right: Verified Safe Patches Viewer -->
+            <div class="col-span-5 border border-slate-800 rounded-xl bg-slate-900 p-3 flex flex-col h-full overflow-hidden">
+              <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800/80 shrink-0">
+                <div class="text-xs font-bold uppercase text-slate-300 tracking-wider flex items-center gap-2">
+                  <span>Verified Safe Patches</span>
+                </div>
+                <span class="text-[10px] text-slate-500 font-mono">No Deletions</span>
+              </div>
+              <div id="swarmPatchesList" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                <div class="text-xs text-slate-500 italic py-4 text-center">Waiting for the agents to generate patches.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== VIEW 5: SANDBOX & INVARIANTS ==================== -->
+        <div id="view-sandbox" class="view-container p-6 space-y-6 hidden">
+          <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+            <div>
+              <div class="text-sm font-bold text-white">Pre-Flight Dry-Run Sandbox</div>
+              <div class="text-xs text-slate-400 mt-0.5">Tests execution plan diffs and blocks resource recreation.</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="runSandboxBtn" onclick="window.SandboxModule.runSimulation()" class="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold shadow-lg shadow-amber-600/20 flex items-center gap-1.5 cursor-pointer transition">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>Run Dry-Run Test</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Verdict Banner -->
+          <div id="sandboxVerdictBanner"></div>
+
+          <!-- Gauges Row -->
+          <div class="grid grid-cols-4 gap-4">
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">Additive Creates</div>
+              <div id="sandboxCreatedCount" class="text-2xl font-bold text-emerald-400 mt-1 font-mono">0</div>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">In-Place Updates</div>
+              <div id="sandboxUpdatedCount" class="text-2xl font-bold text-amber-400 mt-1 font-mono">0</div>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">Destructive Deletions</div>
+              <div id="sandboxDeletedCount" class="text-2xl font-bold text-rose-400 mt-1 font-mono">0</div>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">Forced Replacements</div>
+              <div id="sandboxReplacedCount" class="text-2xl font-bold text-rose-500 mt-1 font-mono">0</div>
+            </div>
+          </div>
+
+          <!-- Changes List -->
+          <div class="border border-slate-800 rounded-xl bg-slate-900 p-4">
+            <div class="text-xs font-bold uppercase text-slate-400 tracking-wider mb-3">Planned State Changes</div>
+            <div id="sandboxChangesList">
+              <div class="text-xs text-slate-500 py-4 text-center">Run simulation to view inspected plan diffs.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== VIEW 6: BENCHMARKS & ABLATION ==================== -->
+        <div id="view-benchmark" class="view-container p-6 space-y-6 hidden">
+          <div class="flex justify-between items-center p-4 rounded-xl bg-slate-900 border border-slate-800">
+            <div>
+              <div class="text-sm font-bold text-white">Governance Benchmarks</div>
+              <div class="text-xs text-slate-400 mt-0.5">Comparison against unconstrained AI models without safety checks.</div>
+            </div>
+            <button id="runBenchmarkBtn" onclick="window.BenchmarkModule.runBenchmark()" class="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-600/20 flex items-center gap-1.5 cursor-pointer">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>Run Benchmark</span>
+            </button>
+          </div>
+
+          <!-- High-Level KPI Summary -->
+          <div class="grid grid-cols-4 gap-4">
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">Remediation Coverage</div>
+              <div id="bmRemediationRate" class="text-2xl font-bold text-amber-400 mt-1 font-mono">0.0%</div>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">Invariant Preservation</div>
+              <div id="bmInvariantRate" class="text-2xl font-bold text-emerald-400 mt-1 font-mono">100.0%</div>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">Outages Prevented</div>
+              <div id="bmOutagesPrevented" class="text-2xl font-bold text-rose-400 mt-1 font-mono">0</div>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-900 border border-slate-800">
+              <div class="text-[11px] font-bold uppercase text-slate-500">Pipeline Latency</div>
+              <div id="bmLatency" class="text-2xl font-bold text-purple-400 mt-1 font-mono">0.00s</div>
+            </div>
+          </div>
+
+          <!-- Comparative Scorecard Table -->
+          <div class="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/40">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-900 border-b border-slate-800 text-slate-400 font-semibold">
+                  <th class="py-3 px-4">Safety Check</th>
+                  <th id="bmUnconstrainedHeader" class="py-3 px-4 text-center text-rose-300">Standard AI Model</th>
+                  <th id="bmRegRadarHeader" class="py-3 px-4 text-center text-emerald-300">RegRadar Safety Gates</th>
+                  <th class="py-3 px-4 text-center text-amber-300">Result</th>
+                </tr>
+              </thead>
+              <tbody id="ablationTableBody">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Export Action Bar -->
+          <div class="flex justify-end space-x-3">
+            <button onclick="window.BenchmarkModule.exportArtifact('latex')" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              <span>Download LaTeX (.tex)</span>
+            </button>
+            <button onclick="window.BenchmarkModule.exportArtifact('markdown')" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <span>Download Markdown (.md)</span>
+            </button>
+            <button onclick="window.BenchmarkModule.exportArtifact('csv')" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              <span>Download CSV (.csv)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ==================== VIEW 7: CI/CD & REMOTE GIT REPOSITORIES ==================== -->
+        <div id="view-github" class="view-container p-6 space-y-6 hidden">
+          <!-- Header Toolbar -->
+          <div class="flex justify-between items-center p-4 rounded-xl bg-slate-900 border border-slate-800 flex-wrap gap-3">
+            <div>
+              <div class="text-sm font-bold text-white flex items-center gap-2">
+                <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M18 6v6a6 6 0 0 1-6 6H6"/><circle cx="18" cy="6" r="3"/></svg>
+                <span>CI/CD &amp; Remote Git Repositories</span>
+                <span id="ghDbPill" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Active</span>
+              </div>
+              <div class="text-xs text-slate-400 mt-0.5">Connected repositories with branch selection and automated webhooks.</div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button onclick="(window.openConnectModal || window.GitHubModule?.openConnectModal)()" class="px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white border border-amber-500/50 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-sm">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Connect Remote Repository</span>
+              </button>
+              <button onclick="(window.openLogsModal || window.GitHubModule?.openLogsModal)()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-1.5 cursor-pointer transition">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                <span>Webhook Logs</span>
+              </button>
+              <button onclick="(window.openInstructionsModal || window.GitHubModule?.openInstructionsModal)()" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium flex items-center gap-1.5 cursor-pointer transition">
+                <svg class="w-3.5 h-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>Setup Guide</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Connected Repositories Main Section -->
+          <div class="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                  <span>Connected Repositories and Branches</span>
+                </h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">Switch active working branches and trigger real-time updates.</p>
+              </div>
+              <button onclick="(window.openConnectModal || window.GitHubModule?.openConnectModal)()" class="text-xs font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Add Repository</span>
+              </button>
+            </div>
+
+            <div id="connectedReposList" class="space-y-3">
+              <!-- Rendered dynamically by JS -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ==================== VIEW 8: PR & MR STAGING QUEUE ==================== -->
+        <div id="view-queue" class="view-container p-6 space-y-6 hidden">
+          <!-- Header Toolbar -->
+          <div class="flex justify-between items-center p-4 rounded-xl bg-slate-900 border border-slate-800 flex-wrap gap-3">
+            <div>
+              <div class="text-sm font-bold text-white flex items-center gap-2">
+                <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M18 6v6a6 6 0 0 1-6 6H6"/><circle cx="18" cy="6" r="3"/></svg>
+                <span>PR and MR Staging Queue</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">Safety Gated</span>
+              </div>
+              <div class="text-xs text-slate-400 mt-0.5">Plan diff checks and human sign-off for pull and merge requests.</div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button id="refreshQueueBtn" onclick="(window.refreshPRQueue || window.GitHubModule?.refreshPRQueue)()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition">
+                <svg id="refreshQueueIcon" class="w-3.5 h-3.5 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                <span id="refreshQueueText">Refresh Queue</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Staged Pull Requests & Merge Requests Queue -->
+          <div class="space-y-3">
+            <div id="ghStagedPRList" class="space-y-3">
+              <!-- Rendered by window.GitHubModule -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="ghEmptyPRList" class="p-12 text-center border border-slate-800 rounded-xl bg-slate-900/40">
+              <div class="text-slate-500 mb-2">
+                <svg class="w-8 h-8 mx-auto text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M18 6v6a6 6 0 0 1-6 6H6"/><circle cx="18" cy="6" r="3"/></svg>
+              </div>
+              <div class="text-sm font-semibold text-slate-300">No Pull Requests or Merge Requests in Queue</div>
+              <p class="text-xs text-slate-500 mt-1">Pull requests from GitHub or GitLab will appear here for review.</p>
+            </div>
+          </div>
+
+          <!-- PR Plan Diff Inspector Slide-Over Drawer -->
+          <div id="ghPRDrawer" class="fixed right-0 top-0 bottom-0 w-[540px] bg-slate-900/95 backdrop-blur-xl border-l border-slate-800 p-6 shadow-2xl z-40 hidden overflow-y-auto flex flex-col justify-between">
+            <div class="space-y-4">
+              <div class="flex justify-between items-start pb-3 border-b border-slate-800">
+                <div>
+                  <h3 id="ghDrawerTitle" class="text-sm font-bold text-white"></h3>
+                  <div id="ghDrawerMeta" class="mt-1"></div>
+                </div>
+                <button onclick="window.GitHubModule.closeDrawer()" class="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition">
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <div id="ghDrawerContent" class="space-y-3"></div>
+            </div>
+            <div class="pt-4 border-t border-slate-800 flex justify-end">
+              <button onclick="window.GitHubModule.closeDrawer()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">Close Drawer</button>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <!-- INLINE MODAL CONTROLLER & GUARANTEED FALLBACKS -->
+    <script>
+      (function() {
+        window.openConnectModal = function() {
+          var m = document.getElementById("connectRepoModal");
+          if (m) m.classList.remove("hidden");
+          var inp = document.getElementById("connectRepoName");
+          if (inp && typeof inp.focus === "function") setTimeout(function() { inp.focus(); }, 60);
+        };
+        window.closeConnectModal = function() {
+          var m = document.getElementById("connectRepoModal");
+          if (m) m.classList.add("hidden");
+        };
+        window.openInstructionsModal = function() {
+          var m = document.getElementById("instructionsModal");
+          if (m) m.classList.remove("hidden");
+        };
+        window.closeInstructionsModal = function() {
+          var m = document.getElementById("instructionsModal");
+          if (m) m.classList.add("hidden");
+        };
+        window.openLogsModal = function() {
+          var m = document.getElementById("ghLogsModal") || document.getElementById("ghLogsDrawer");
+          if (m) m.classList.remove("hidden");
+          if (window.GitHubModule && typeof window.GitHubModule.loadWebhookLogs === "function") {
+            window.GitHubModule.loadWebhookLogs();
+          }
+        };
+        window.closeLogsModal = function() {
+          var m = document.getElementById("ghLogsModal");
+          if (m) m.classList.add("hidden");
+          var d = document.getElementById("ghLogsDrawer");
+          if (d) d.classList.add("hidden");
+        };
+        window.refreshPRQueue = function() {
+          if (window.GitHubModule && typeof window.GitHubModule.refreshPRQueue === "function") {
+            return window.GitHubModule.refreshPRQueue();
+          }
+        };
+
+        // Guarantee window.GitHubModule exists immediately
+        window.GitHubModule = window.GitHubModule || {};
+        window.GitHubModule.openConnectModal = window.openConnectModal;
+        window.GitHubModule.closeConnectModal = window.closeConnectModal;
+        window.GitHubModule.openInstructionsModal = window.openInstructionsModal;
+        window.GitHubModule.closeInstructionsModal = window.closeInstructionsModal;
+        window.GitHubModule.openLogsModal = window.openLogsModal;
+        window.GitHubModule.closeLogsModal = window.closeLogsModal;
+        window.GitHubModule.refreshPRQueue = window.refreshPRQueue;
+      })();
+    </script>
+
+    <!-- CONNECT REMOTE REPOSITORY POPUP MODAL -->
+    <div id="connectRepoModal" onclick="if(event.target===this)(window.closeConnectModal||window.GitHubModule?.closeConnectModal)()" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+      <div class="max-w-2xl w-full bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+              <span>Connect Remote Git Repository</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Register a remote GitHub or GitLab repository for continuous IaC governance.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="(window.openInstructionsModal || window.GitHubModule?.openInstructionsModal)()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition" title="View CI/CD Webhook Setup Instructions">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>Instructions</span>
+            </button>
+            <button onclick="(window.closeConnectModal || window.GitHubModule?.closeConnectModal)()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Form Inputs Grid -->
+        <div class="grid grid-cols-12 gap-3 text-xs">
+          <!-- Provider -->
+          <div class="col-span-12 sm:col-span-4">
+            <label class="block text-slate-300 mb-1 font-bold uppercase text-[10px] tracking-wider">Provider</label>
+            <select id="connectProvider" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 cursor-pointer">
+              <option value="github">GitHub</option>
+              <option value="gitlab">GitLab</option>
+            </select>
+          </div>
+
+          <!-- Repository Name/URL -->
+          <div class="col-span-12 sm:col-span-8">
+            <label class="block text-slate-300 mb-1 font-bold uppercase text-[10px] tracking-wider">Repository (Name or Clone URL)</label>
+            <input type="text" id="connectRepoName" placeholder="owner/repo or https://github.com/..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 font-mono text-xs focus:outline-none focus:border-amber-500">
+          </div>
+
+          <!-- Access Token (Optional) -->
+          <div class="col-span-12 sm:col-span-8">
+            <label class="block text-slate-300 mb-1 font-bold uppercase text-[10px] tracking-wider">Access Token (Private Repositories)</label>
+            <input type="password" id="connectToken" placeholder="ghp_... / glpat-... (optional)" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 font-mono text-xs focus:outline-none focus:border-amber-500">
+          </div>
+
+          <!-- Probe Branches Button -->
+          <div class="col-span-12 sm:col-span-4 flex items-end">
+            <button type="button" id="btnFetchBranches" onclick="window.GitHubModule.fetchRemoteBranches()" class="w-full py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition">
+              <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+              <span>Fetch Branches</span>
+            </button>
+          </div>
+
+          <!-- Real Branch Selection Dropdown -->
+          <div class="col-span-12">
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-slate-300 font-bold uppercase text-[10px] tracking-wider">Target Real Branch</label>
+              <span id="branchStatusBadge" class="text-[10px] font-mono text-slate-400">Default: main</span>
+            </div>
+            <select id="connectBranchSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 font-mono text-xs focus:outline-none focus:border-amber-500 cursor-pointer">
+              <option value="main">main (Default)</option>
+              <option value="master">master</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Remote Metadata Dynamic Preview -->
+        <div id="remoteMetaPreview" class="hidden p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs flex items-center justify-between flex-wrap gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-emerald-400 font-mono text-[11px] flex items-center gap-1">
+              Verified Remote
+            </span>
+            <span id="previewBranchCount" class="text-slate-300 font-mono text-[11px]"></span>
+            <span id="previewDefaultBranch" class="text-amber-400 font-mono text-[11px]"></span>
+            <span id="previewLatestSha" class="text-slate-400 font-mono text-[11px]"></span>
+          </div>
+          <span class="text-[10px] text-slate-500 font-mono">Select branch &amp; click connect</span>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+          <button onclick="(window.closeConnectModal || window.GitHubModule?.closeConnectModal)()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition">
+            Cancel
+          </button>
+          <button id="submitConnectBtn" onclick="window.GitHubModule.submitConnectRepo()" class="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md shadow-amber-600/20 flex items-center justify-center gap-2 cursor-pointer transition">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            <span>Verify &amp; Connect Repository</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSTRUCTIONS POPUP MODAL -->
+    <div id="instructionsModal" onclick="if(event.target===this)(window.closeInstructionsModal||window.GitHubModule?.closeInstructionsModal)()" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+      <div class="max-w-3xl w-full bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>CI/CD Pipeline &amp; Webhook Setup Guide</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Instructions and pipeline configurations for hooking your remote repository to RegRadar.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800">
+              <button id="tabBtnGitHub" onclick="window.GitHubModule.switchGuideTab('github')" class="px-3 py-1 rounded text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 transition cursor-pointer">
+                GitHub
+              </button>
+              <button id="tabBtnGitLab" onclick="window.GitHubModule.switchGuideTab('gitlab')" class="px-3 py-1 rounded text-xs font-semibold text-slate-400 hover:text-slate-200 transition cursor-pointer">
+                GitLab
+              </button>
+            </div>
+            <button onclick="(window.closeInstructionsModal || window.GitHubModule?.closeInstructionsModal)()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- GITHUB SETUP PANEL -->
+        <div id="panelGuideGitHub" class="space-y-4">
+          <!-- Webhook Config Row -->
+          <div class="grid grid-cols-12 gap-4">
+            <div class="col-span-12 md:col-span-7 space-y-2">
+              <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider">GitHub Payload URL</div>
+              <div class="flex items-center space-x-2">
+                <input type="text" id="ghWebhookEndpoint" readonly class="flex-1 bg-slate-950 border border-slate-700 px-3 py-2 rounded-lg text-xs font-mono text-amber-400 select-all focus:outline-none">
+                <button id="copyWebhookBtn" onclick="window.GitHubModule.copyWebhookUrl()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 flex items-center gap-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span>Copy URL</span>
+                </button>
+              </div>
+              <div class="text-[11px] text-slate-400">
+                In GitHub &rarr; Settings &rarr; Webhooks &rarr; Add webhook. Content type: <code class="text-slate-300 font-mono">application/json</code>.
+              </div>
+            </div>
+
+            <!-- HUMANIZED Security Gate Policy Box -->
+            <div class="col-span-12 md:col-span-5 p-3.5 rounded-lg bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <div>
+                <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2">Webhook Security &amp; Gating</div>
+                <div class="space-y-1.5 text-xs text-slate-400">
+                  <div class="flex items-center justify-between">
+                    <span>Payload Signature:</span>
+                    <span id="ghSecretStatus" class="font-mono text-emerald-400 font-semibold">HMAC SHA-256</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span>Merge Policy:</span>
+                    <span id="ghSignoffPolicy" class="font-semibold text-cyan-400">Mandatory Operator Sign-Off</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span>Deletion Invariant:</span>
+                    <span class="font-mono text-amber-400 font-semibold">0 destructions allowed</span>
+                  </div>
+                </div>
+              </div>
+              <div class="pt-2 border-t border-slate-800 text-[10px] text-slate-500 font-mono mt-2">
+                Dry-run plan diff must contain 0 deletions before staging.
+              </div>
+            </div>
+          </div>
+
+          <!-- Step-by-Step Instructions & Workflow Code Block -->
+          <div class="grid grid-cols-12 gap-4">
+            <div class="col-span-12 lg:col-span-6 space-y-2">
+              <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Step-by-Step GitHub Setup</div>
+              <ol class="space-y-2 text-xs text-slate-300 list-decimal list-inside bg-slate-950 p-3.5 rounded-lg border border-slate-800">
+                <li>Open your repository on GitHub and navigate to <strong>Settings &gt; Webhooks &gt; Add webhook</strong>.</li>
+                <li>Paste the <strong>Payload URL</strong> above into the Payload URL field.</li>
+                <li>Select <strong>application/json</strong> as the Content type.</li>
+                <li>Enter your secret matching the <code class="font-mono text-amber-300">REGRADAR_GITHUB_WEBHOOK_SECRET</code> environment variable.</li>
+                <li>Under events, choose <strong>Let me select individual events</strong> and check <strong>Pull requests</strong> and <strong>Pushes</strong>.</li>
+                <li>Save the webhook. Incoming pull requests will appear in the staging queue.</li>
+              </ol>
+            </div>
+
+            <div class="col-span-12 lg:col-span-6 space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider font-mono">.github/workflows/regradar-gate.yml</div>
+                <button onclick="window.GitHubModule.copyWorkflowCode('github')" class="text-[10px] font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer">
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span>Copy YAML</span>
+                </button>
+              </div>
+              <pre class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-[11px] font-mono text-slate-300 overflow-x-auto leading-relaxed max-h-56">name: RegRadar Zero-Destruction Gate
+on:
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  regradar-invariant-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+
+      - name: Generate Plan Diff
+        run: |
+          tofu init
+          tofu plan -out=plan.tfplan
+          tofu show -json plan.tfplan &gt; plan.json
+
+      - name: Dispatch Plan to RegRadar Gate
+        env:
+          REGRADAR_URL: ${{ secrets.REGRADAR_URL }}
+        run: |
+          curl -s -X POST "${REGRADAR_URL}/api/webhooks/github" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: pull_request" \
+            -d @plan.json</pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- GITLAB SETUP PANEL -->
+        <div id="panelGuideGitLab" class="space-y-4 hidden">
+          <!-- Webhook Config Row -->
+          <div class="grid grid-cols-12 gap-4">
+            <div class="col-span-12 md:col-span-7 space-y-2">
+              <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider">GitLab Webhook URL</div>
+              <div class="flex items-center space-x-2">
+                <input type="text" id="glWebhookEndpoint" readonly class="flex-1 bg-slate-950 border border-slate-700 px-3 py-2 rounded-lg text-xs font-mono text-amber-400 select-all focus:outline-none">
+                <button id="copyGlWebhookBtn" onclick="window.GitHubModule.copyGitLabWebhookUrl()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 flex items-center gap-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span>Copy URL</span>
+                </button>
+              </div>
+              <div class="text-[11px] text-slate-400">
+                In GitLab &rarr; Settings &rarr; Webhooks &rarr; Add new webhook. Trigger on: <strong>Merge requests events</strong> &amp; <strong>Push events</strong>.
+              </div>
+            </div>
+
+            <div class="col-span-12 md:col-span-5 p-3.5 rounded-lg bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <div>
+                <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider mb-2">GitLab Authentication</div>
+                <div class="space-y-1.5 text-xs text-slate-400">
+                  <div class="flex items-center justify-between">
+                    <span>Header:</span>
+                    <span class="font-mono text-cyan-400 font-semibold text-[11px]">X-Gitlab-Token</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span>Gate Mode:</span>
+                    <span class="font-semibold text-emerald-400">Invariant Checked</span>
+                  </div>
+                </div>
+              </div>
+              <div class="pt-2 border-t border-slate-800 text-[10px] text-slate-500 font-mono mt-2">
+                Posts audit note back to GitLab MR automatically.
+              </div>
+            </div>
+          </div>
+
+          <!-- Step-by-Step Instructions & GitLab CI Block -->
+          <div class="grid grid-cols-12 gap-4">
+            <div class="col-span-12 lg:col-span-6 space-y-2">
+              <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Step-by-Step GitLab Setup</div>
+              <ol class="space-y-2 text-xs text-slate-300 list-decimal list-inside bg-slate-950 p-3.5 rounded-lg border border-slate-800">
+                <li>Open your GitLab project and navigate to <strong>Settings &gt; Webhooks &gt; Add new webhook</strong>.</li>
+                <li>Paste the <strong>GitLab Webhook URL</strong> into the URL field.</li>
+                <li>Enter the Secret token matching your <code class="font-mono text-amber-300">REGRADAR_GITLAB_WEBHOOK_SECRET</code>.</li>
+                <li>Under Trigger, check <strong>Merge requests events</strong> and <strong>Push events</strong>.</li>
+                <li>Click <strong>Add webhook</strong> to save.</li>
+                <li>Add the CI configuration below to your project as <code class="font-mono text-slate-300">.gitlab-ci.yml</code>.</li>
+              </ol>
+            </div>
+
+            <div class="col-span-12 lg:col-span-6 space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="text-[10px] font-bold text-slate-300 uppercase tracking-wider font-mono">.gitlab-ci.yml</div>
+                <button onclick="window.GitHubModule.copyWorkflowCode('gitlab')" class="text-[10px] font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer">
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span>Copy YAML</span>
+                </button>
+              </div>
+              <pre class="bg-slate-950 p-3 rounded-lg border border-slate-800 text-[11px] font-mono text-slate-300 overflow-x-auto leading-relaxed max-h-56">stages:
+  - governance
+
+regradar-zero-destruction-gate:
+  stage: governance
+  image: ghcr.io/opentofu/opentofu:latest
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - tofu init
+    - tofu plan -out=plan.tfplan
+    - tofu show -json plan.tfplan &gt; plan.json
+    - |
+      curl -s -X POST "${REGRADAR_URL}/api/webhooks/gitlab" \
+        -H "Content-Type: application/json" \
+        -H "X-Gitlab-Event: Merge Request Hook" \
+        -H "X-Gitlab-Token: ${REGRADAR_GITLAB_WEBHOOK_SECRET}" \
+        -d @plan.json</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex justify-end">
+          <button onclick="(window.closeInstructionsModal || window.GitHubModule?.closeInstructionsModal)()" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+            Close Guide
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WEBHOOK AUDIT LOGS POPUP MODAL (CENTERED DIALOG) -->
+    <div id="ghLogsModal" onclick="if(event.target===this)(window.closeLogsModal||window.GitHubModule?.closeLogsModal)()" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+      <div class="max-w-3xl w-full bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+        <div class="flex justify-between items-start pb-3 border-b border-slate-800 shrink-0">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <svg class="w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span>Webhook Dispatch Audit Trail</span>
+            </h3>
+            <div class="text-xs text-slate-400 mt-0.5">ACID-persisted SQLite log of incoming hooks and outgoing notifications.</div>
+          </div>
+          <button onclick="(window.closeLogsModal || window.GitHubModule?.closeLogsModal)()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <!-- Test Webhook Dispatch Tool -->
+        <div class="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-2 shrink-0">
+          <div class="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Test Outgoing Webhook Trigger</div>
+          <div class="flex items-center gap-2">
+            <input type="url" id="ghTestWebhookUrl" placeholder="https://webhook.site/..." class="flex-1 bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg text-xs text-slate-200 focus:outline-none">
+            <button onclick="window.GitHubModule.dispatchTestNotification()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shrink-0 cursor-pointer transition">
+              Send Ping
+            </button>
+          </div>
+        </div>
+
+        <div id="ghWebhookLogsList" class="space-y-2 flex-1 overflow-y-auto pr-1">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex justify-between items-center shrink-0">
+          <button onclick="window.GitHubModule.loadWebhookLogs()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 cursor-pointer transition">Refresh Logs</button>
+          <button onclick="(window.closeLogsModal || window.GitHubModule?.closeLogsModal)()" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settingsModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+      <div class="w-[560px] bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-center pb-3 border-b border-slate-800">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+              <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+              <span>AI Model Configuration</span>
+            </h3>
+            <p class="text-[11px] text-slate-400 mt-0.5">Select and validate the active AI model.</p>
+          </div>
+          <button id="closeSettingsBtn" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <!-- 1. Provider Selector -->
+          <div>
+            <label class="block text-slate-300 mb-1.5 font-bold uppercase tracking-wider text-[10px]">1. AI Provider</label>
+            <select id="providerSelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-slate-200 font-semibold focus:border-amber-500 focus:outline-none">
+              <option value="gemini">Google Gemini</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="ollama">Ollama</option>
+            </select>
+          </div>
+
+          <!-- 2. Specific Model Selector with Validation -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-slate-300 font-bold uppercase tracking-wider text-[10px]">2. Model</label>
+              <span id="modelValidationBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">Unverified</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <select id="modelSelect" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 font-mono text-xs focus:border-amber-500 focus:outline-none">
+                <option value="gemini-4-argon" selected>Gemini 4 Argon: Fast Reasoning (1M tokens)</option>
+                <option value="gemini-4-carbon">Gemini 4 Carbon: Deep Reasoning (1M tokens)</option>
+                <option value="gemini-4-hydrogen">Gemini 4 Hydrogen: Fast Generation (1M tokens)</option>
+                <option value="gemini-3.8-flash">Gemini 3.8 Flash: Standard Production (1M tokens)</option>
+                <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite: High Throughput (1M tokens)</option>
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro: Deep Analysis (2M tokens)</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash: Standard Fast (1M tokens)</option>
+              </select>
+              <button type="button" id="btnTestActiveModel" onclick="window.validateActiveModel()" class="px-3 py-2 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-xs font-semibold flex items-center gap-1 cursor-pointer transition">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Test</span>
+              </button>
+            </div>
+            <div id="modelValidationMsg" class="text-[11px] text-slate-400 mt-1 min-h-[16px]"></div>
+
+            <!-- Dynamic Model Specifications & Capabilities Preview Card -->
+            <div id="modelDetailsCard" class="mt-2.5 p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5 text-xs">
+              <div class="flex items-center justify-between flex-wrap gap-1.5">
+                <div class="flex items-center gap-2">
+                  <span id="modelCardName" class="font-bold text-slate-200">Gemini 4 Argon</span>
+                  <span id="modelCardTier" class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">Reasoning</span>
+                </div>
+                <span id="modelCardContext" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">1M Context</span>
+              </div>
+              <p id="modelCardTagline" class="text-[11px] text-slate-400 leading-relaxed">Fast reasoning model for patch generation and validation.</p>
+              <div class="flex items-center justify-between text-[10px] text-slate-500 pt-1.5 border-t border-slate-800/80">
+                <span id="modelCardCapabilities" class="font-mono text-slate-400 truncate max-w-[280px]">1M Context, Configurable Thinking, High Logic Accuracy</span>
+                <a id="modelCardDocsLink" href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank" rel="noopener noreferrer" class="text-amber-400 hover:text-amber-300 flex items-center gap-1 font-semibold underline">
+                  <span>Official Docs</span>
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Provider Credentials -->
+          <div class="space-y-3 pt-1 border-t border-slate-800/60">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">3. Authentication Credentials</div>
+
+            <!-- Gemini Key (Default Frontier Provider) -->
+            <div id="geminiKeyGroup" class="space-y-1">
+              <div class="flex justify-between items-center">
+                <label class="text-amber-300 font-semibold flex items-center gap-1.5">
+                  <span>Google Gemini API Key</span>
+                  <span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">Primary</span>
+                </label>
+                <span id="geminiKeyStatus" class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">Not Set</span>
+              </div>
+              <input type="password" id="geminiKeyInput" placeholder="AIzaSy..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 font-mono">
+            </div>
+
+            <!-- OpenAI Key -->
+            <div id="openaiKeyGroup" class="space-y-1">
+              <div class="flex justify-between items-center">
+                <label class="text-slate-400 font-semibold">OpenAI API Key</label>
+                <span id="openaiKeyStatus" class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">Not Set</span>
+              </div>
+              <input type="password" id="openaiKeyInput" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 font-mono">
+            </div>
+
+            <!-- Anthropic Key -->
+            <div id="anthropicKeyGroup" class="space-y-1">
+              <div class="flex justify-between items-center">
+                <label class="text-slate-400 font-semibold">Anthropic API Key</label>
+                <span id="anthropicKeyStatus" class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">Not Set</span>
+              </div>
+              <input type="password" id="anthropicKeyInput" placeholder="sk-ant-..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 font-mono">
+            </div>
+
+            <!-- DeepSeek Key -->
+            <div id="deepseekKeyGroup" class="space-y-1">
+              <div class="flex justify-between items-center">
+                <label class="text-slate-400 font-semibold">DeepSeek API Key</label>
+                <span id="deepseekKeyStatus" class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">Not Set</span>
+              </div>
+              <input type="password" id="deepseekKeyInput" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 font-mono">
+            </div>
+
+            <!-- Ollama URL & Live Validation Framework -->
+            <div id="ollamaUrlGroup" class="space-y-2 p-3 rounded-xl bg-slate-950/80 border border-slate-800">
+              <div class="flex items-center justify-between">
+                <label class="text-slate-300 font-semibold text-xs flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
+                  <span>Local Ollama Daemon Host</span>
+                </label>
+                <span id="ollamaHealthBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Unverified</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <input type="text" id="ollamaUrlInput" value="http://localhost:11434" placeholder="http://localhost:11434" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 font-mono text-xs focus:outline-none focus:border-amber-500">
+                <button type="button" id="validateOllamaBtn" onclick="window.validateOllamaConnection()" class="px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-xs font-semibold flex items-center gap-1 cursor-pointer transition">
+                  <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Verify Ollama</span>
+                </button>
+              </div>
+              <div id="ollamaValidationMsg" class="text-[11px] text-slate-400 leading-normal"></div>
+              <div id="ollamaDiscoveredModels" class="hidden space-y-1 pt-1.5 border-t border-slate-800/80">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Discovered Local Models (Click to Select)</div>
+                <div id="ollamaModelChips" class="flex flex-wrap gap-1.5"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-2.5 pt-3 border-t border-slate-800">
+          <button id="cancelSettingsBtn" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs">Cancel</button>
+          <button id="saveSettingsBtn" class="px-5 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-600/20 flex items-center gap-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Save Configuration</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPOSITORY CONNECTION REALTIME PROGRESS METER OVERLAY -->
+    <div id="repoConnectionProgressOverlay" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center hidden">
+      <div class="w-full max-w-lg bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-2xl space-y-5">
+        <div class="flex items-center space-x-3 pb-3 border-b border-slate-800">
+          <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+            <svg class="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="12"/></svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Connecting Remote Repository</h3>
+            <p id="repoProgressTargetSub" class="text-xs text-slate-400 mt-0.5 font-mono">Resolving git remote references...</p>
+          </div>
+        </div>
+
+        <!-- Meter Bar -->
+        <div class="space-y-2">
+          <div class="flex justify-between items-center text-xs font-mono">
+            <span id="repoProgressStageText" class="text-amber-400 font-semibold">Probing remote transport...</span>
+            <span id="repoProgressPercent" class="text-slate-300 font-bold">15%</span>
+          </div>
+          <div class="w-full bg-slate-950 rounded-full h-2.5 border border-slate-800 overflow-hidden">
+            <div id="repoProgressBar" class="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 rounded-full transition-all duration-300" style="width: 15%"></div>
+          </div>
+        </div>
+
+        <!-- Milestones list -->
+        <div class="space-y-2.5 text-xs font-mono pt-1">
+          <div id="repoStep1" class="flex items-center space-x-2.5 text-amber-400">
+            <span class="step-icon w-4 h-4 rounded border border-amber-400/60 flex items-center justify-center text-[10px] font-mono">1</span>
+            <span>1. Authenticate and verify remote connection</span>
+          </div>
+          <div id="repoStep2" class="flex items-center space-x-2.5 text-slate-500">
+            <span class="step-icon w-4 h-4 rounded border border-slate-700 flex items-center justify-center text-[10px] font-mono">2</span>
+            <span>2. Clone repository and checkout branch</span>
+          </div>
+          <div id="repoStep3" class="flex items-center space-x-2.5 text-slate-500">
+            <span class="step-icon w-4 h-4 rounded border border-slate-700 flex items-center justify-center text-[10px] font-mono">3</span>
+            <span>3. Parse Terraform configuration files</span>
+          </div>
+          <div id="repoStep4" class="flex items-center space-x-2.5 text-slate-500">
+            <span class="step-icon w-4 h-4 rounded border border-slate-700 flex items-center justify-center text-[10px] font-mono">4</span>
+            <span>4. Build dependency graph and save records</span>
+          </div>
+          <div id="repoStep5" class="flex items-center space-x-2.5 text-slate-500">
+            <span class="step-icon w-4 h-4 rounded border border-slate-700 flex items-center justify-center text-[10px] font-mono">5</span>
+            <span>5. Workspace ready and graph loaded</span>
+          </div>
+        </div>
+
+        <!-- Error Container (Hidden by default) -->
+        <div id="repoProgressErrorBox" class="hidden p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs space-y-2">
+          <div class="font-bold flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>Connection Failed</span>
+          </div>
+          <p id="repoProgressErrorMsg" class="font-mono text-[11px] leading-relaxed text-rose-200"></p>
+          <div class="flex justify-end pt-1">
+            <button onclick="window.GitHubModule.dismissProgressOverlay()" class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs cursor-pointer">Dismiss</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GIT SYNC & CHANGES REPORT MODAL -->
+    <div id="gitSyncModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+      <div class="w-[640px] max-w-[95vw] bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+        <div class="flex justify-between items-center pb-3 border-b border-slate-800 shrink-0">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <span>Git Remote Synchronization Report</span>
+                <span id="syncModalBranchBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">main</span>
+              </h3>
+              <p id="syncModalRepoName" class="text-xs text-slate-400 font-mono mt-0.5"></p>
+            </div>
+          </div>
+          <button onclick="document.getElementById('gitSyncModal').classList.add('hidden')" class="text-slate-400 hover:text-white p-1 cursor-pointer">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="overflow-y-auto space-y-4 flex-1 pr-1">
+          <!-- Status Banner -->
+          <div id="syncModalStatusBanner" class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center space-x-2.5">
+            <svg class="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="syncModalStatusText" class="font-medium">Repository synchronized successfully.</span>
+          </div>
+
+          <!-- Diff / Changes Summary -->
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Working Tree Diff Summary</div>
+            <pre id="syncModalDiffStat" class="text-[11px] font-mono text-slate-300 whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto"></pre>
+          </div>
+
+          <!-- Commit History Cards -->
+          <div class="space-y-2">
+            <div class="text-[11px] font-bold uppercase text-slate-400 tracking-wider flex items-center justify-between">
+              <span>Synchronized &amp; Recent Commits</span>
+              <span id="syncModalCommitCount" class="text-[10px] font-mono text-slate-500"></span>
+            </div>
+            <div id="syncModalCommitList" class="space-y-2">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex justify-end shrink-0">
+          <button onclick="document.getElementById('gitSyncModal').classList.add('hidden')" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<!-- TOAST CONTAINER -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- Application Modules -->
+  <script src="/js/icons.js?v=2026.5"></script>
+  <script src="/js/app.js?v=2026.5"></script>
+  <script src="/js/topology.js?v=2026.5"></script>
+  <script src="/js/compliance.js?v=2026.5"></script>
+  <script src="/js/review.js?v=2026.5"></script>
+  <script src="/js/swarm.js?v=2026.5"></script>
+  <script src="/js/sandbox.js?v=2026.5"></script>
+  <script src="/js/benchmark.js?v=2026.5"></script>
+  <script src="/js/github.js?v=2026.5"></script>
+</body>
+</html>

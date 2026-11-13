@@ -35,6 +35,16 @@ def create_app(custom_config: Optional[RegRadarConfig] = None) -> FastAPI:
     # Mount API routes
     app.include_router(api_router)
 
+    # Dashboard page routes
+    dashboard_file = STATIC_DIR / "dashboard.html"
+    if dashboard_file.exists():
+        from fastapi.responses import FileResponse
+
+        @app.get("/dashboard", include_in_schema=False)
+        @app.get("/dashboard/", include_in_schema=False)
+        def dashboard_page():
+            return FileResponse(dashboard_file)
+
     # Mount static frontend assets if present
     if STATIC_DIR.exists() and (STATIC_DIR / "index.html").exists():
         app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="web")

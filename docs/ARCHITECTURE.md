@@ -1,6 +1,6 @@
 # RegRadar Architecture and Engineering Specification
 
-This document provides a technical walkthrough of RegRadar's core modules, mathematical risk formulations, and invariant enforcement pipeline.
+This document provides a technical walkthrough of RegRadar's core modules, mathematical risk formulations, invariant enforcement pipeline, web console, and VCS webhook integration.
 
 ---
 
@@ -62,7 +62,7 @@ $$S(v) = 0.50 \cdot R_{\text{desc}}(v) + 0.30 \cdot C_B(v) + 0.20 \cdot C_{\text
 * **`INTERMEDIATE`** ($0.15 \le S(v) < 0.40$):
   Mid-tier resources with bounded dependents. Autonomous patches are permitted under strict pre-flight plan diff validation.
 * **`LEAF_SAFE`** ($S(v) < 0.15$ and $|\text{Descendants}(v)| = 0$):
-  Leaf configurations with zero downstream dependents (e.g. S3 server-side encryption blocks, access logging, egress rules). Autonomous remediation is enabled.
+  Leaf configurations with zero downstream dependents (such as S3 server-side encryption blocks, access logging, and egress rules). Autonomous remediation is enabled.
 
 ---
 
@@ -106,7 +106,7 @@ If applied automatically, stateful databases, storage volumes, or network gatewa
    * **Rule 1 (`NO_UNINTENDED_DELETION`):** No resource can have `actions` containing `"delete"`.
    * **Rule 2 (`NO_FORCES_REPLACEMENT`):** No existing resource can have actions `["delete", "create"]` or `["create", "delete"]`. Any plan diff triggering recreation is rejected.
    * **Rule 3 (`NO_SCHEMA_DROP`):** If an attribute had a non-empty value in `before`, it cannot be silently omitted or nullified in `after`.
-   * **Rule 4 (`ADDITIVE_ATTACHMENTS_ALLOWED`):** New compliance attachments (e.g., adding a standalone `aws_s3_bucket_server_side_encryption_configuration` alongside an existing bucket) have `actions == ["create"]` and `before == null`. These are safe and accepted.
+   * **Rule 4 (`ADDITIVE_ATTACHMENTS_ALLOWED`):** New compliance attachments (such as adding a standalone `aws_s3_bucket_server_side_encryption_configuration` alongside an existing bucket) have `actions == ["create"]` and `before == null`. These are safe and accepted.
 
 ---
 
@@ -131,7 +131,7 @@ RegRadar organizes automated remediation into role-separated agents:
 ### 4. Supervisor Agent
 * Pipes the synthesized patch into the pre-flight execution sandbox.
 * If the patch satisfies the zero-destruction invariant, the patch is marked verified and staged.
-* If an invariant violation occurs, the supervisor captures the exact diagnostic reason (e.g., offending attribute forcing replacement) and feeds it back to the synthesizer to refine the patch.
+* If an invariant violation occurs, the supervisor captures the exact diagnostic reason (such as an offending attribute forcing replacement) and feeds it back to the synthesizer to refine the patch.
 
 ---
 
@@ -148,3 +148,49 @@ RegRadar measures performance across four primary metrics:
    The count of state-destructive mutations and production outages prevented compared to unconstrained generative models.
 4. **Pipeline Latency:**
    Total elapsed wall-clock time to run AST parsing, security linting, centrality evaluation, code synthesis, and plan diff validation.
+
+---
+
+## 6. Web Studio and Interactive Graph Architecture
+
+The RegRadar Web Studio (`regradar/api/` and `regradar/web/`) provides a full graphical workspace for operators:
+
+### Backend Service Architecture (`regradar/api/`)
+* Built with FastAPI and Uvicorn.
+* Manages multi-tenant workspaces under `.regradar_repos/`.
+* Exposes REST endpoints for scanning, topology querying, knowledge-base lookups, dry-run simulation, and live remediation.
+* Handles static file delivery with route separation:
+  * `/`: Product landing page and architecture walkthrough (`index.html`).
+  * `/dashboard`: Interactive operations console (`dashboard.html`).
+
+### Client Graph Visualization (`regradar/web/js/topology.js`)
+* Uses Cytoscape.js for dependency graph rendering.
+* Nodes are colored according to their calculated risk tier:
+  * Red for `CRITICAL_ROOT`
+  * Amber for `INTERMEDIATE`
+  * Emerald for `LEAF_SAFE`
+* Clicking a node opens an inspection drawer showing downstream dependents, upstream parents, blast radius score, and compliance violations.
+
+---
+
+## 7. Remote VCS Integration and Webhook Lifecycle
+
+RegRadar integrates directly into GitHub and GitLab workflows to gate incoming pull requests before changes merge into production branches.
+
+### Cryptographic Verification
+Incoming webhook requests are validated against a shared secret using HMAC-SHA256:
+```python
+expected_signature = "sha256=" + hmac.new(secret, payload_bytes, hashlib.sha256).hexdigest()
+is_valid = hmac.compare_digest(expected_signature, request.headers["x-hub-signature-256"])
+```
+Unsigned or invalid requests are rejected with HTTP 401.
+
+### Automated Pull Request Gating Lifecycle
+1. **Event Reception:** A developer opens or updates a pull request. GitHub emits a `pull_request` event (`opened`, `synchronize`).
+2. **Repository Checkout:** The worker synchronizes the target repository into an isolated workspace under `.regradar_repos/` and checks out the pull request head branch.
+3. **Graph and Centrality Scoring:** The AST parser builds the dependency graph and computes blast radius scores for all modified resources.
+4. **Gating Logic:**
+   * **Leaf-Safe Patches:** If all changed resources are `LEAF_SAFE` and satisfy plan diff invariants, RegRadar posts a passing status check (`regradar/compliance: success`).
+   * **Foundational Nodes:** If any changed resource belongs to `CRITICAL_ROOT` or `INTERMEDIATE` tiers, RegRadar marks the status check as `pending` with the description `Awaiting Operator Sign-Off`.
+5. **Operator Review:** Operators inspect the staged pull request in the Web Studio or terminal review tool (`python -m regradar.cli review`), inspect the plan diff, and approve or reject the change.
+6. **PR Finalization:** Upon operator sign-off, the commit status check is updated to `success`, allowing branch protection rules to permit merging.

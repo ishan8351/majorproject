@@ -84,91 +84,231 @@ window.GitHubModule = (function () {
     }
   }
 
-  async function loadConnectedRepos() {
-    try {
-      const res = await fetch("/api/workspaces");
-      if (res.ok) {
-        connectedRepos = await res.json();
-        renderConnectedRepos();
-      }
-    } catch (e) {
-      console.error("Failed to load connected repositories", e);
+  function openConnectModal() {
+    const modal = document.getElementById("connectRepoModal");
+    if (modal) modal.classList.remove("hidden");
+    const nameInput = document.getElementById("connectRepoName");
+    if (nameInput && typeof nameInput.focus === "function") {
+      setTimeout(() => nameInput.focus(), 50);
     }
   }
 
-  function renderConnectedRepos() {
-    const listEl = document.getElementById("connectedReposList");
-    if (!listEl) return;
+  function closeConnectModal() {
+    const modal = document.getElementById("connectRepoModal");
+    if (modal) modal.classList.add("hidden");
+  }
 
-    if (!connectedRepos || connectedRepos.length === 0) {
-      listEl.innerHTML = `
-        <div class="p-3.5 text-center rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-400">
-          No remote repositories connected. Use the form above to connect a GitHub or GitLab repository.
-        </div>
-      `;
-      return;
-    }
+  function openInstructionsModal() {
+    const modal = document.getElementById("instructionsModal");
+    if (modal) modal.classList.remove("hidden");
+  }
 
-    listEl.innerHTML = connectedRepos.map(r => {
-      const isGitLab = (r.name && r.name.toLowerCase().includes("gitlab")) || (r.description && r.description.toLowerCase().includes("gitlab"));
-      const providerBadge = isGitLab
-        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-orange-500/10 text-orange-400 border border-orange-500/30">GitLab</span>`
-        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-500/10 text-slate-300 border border-slate-600/30">GitHub</span>`;
+  function closeInstructionsModal() {
+    const modal = document.getElementById("instructionsModal");
+    if (modal) modal.classList.add("hidden");
+  }
 
-      const resBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">${r.resource_count || 0} resources</span>`;
+  async function openLogsModal() {
+    const modal = document.getElementById("ghLogsModal") || document.getElementById("ghLogsDrawer");
+    if (modal) modal.classList.remove("hidden");
+    await loadWebhookLogs();
+  }
 
-      return `
-        <div class="flex items-center justify-between p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs flex-wrap gap-2">
-          <div class="flex items-center space-x-2.5 flex-wrap gap-1">
-            ${providerBadge}
-            <span class="font-mono font-bold text-slate-200">${r.path}</span>
-            ${resBadge}
-            <span class="text-slate-500 font-mono text-[11px]">&bull; ${r.description || 'Remote Git Repository'}</span>
-          </div>
-          <div class="flex items-center space-x-2">
-            <button onclick="window.GitHubModule.syncRepo('${r.id}')" title="Pull latest changes from remote branch" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-medium transition cursor-pointer flex items-center gap-1">
-              <svg class="w-3 h-3 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-              <span>Sync</span>
-            </button>
-            <button onclick="window.GitHubModule.disconnectRepo('${r.id}')" class="px-2.5 py-1 rounded bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 border border-rose-500/30 text-[11px] font-medium transition cursor-pointer">
-              Disconnect
-            </button>
-          </div>
-        </div>
-      `;
-    }).join("");
+  function closeLogsModal() {
+    const modal = document.getElementById("ghLogsModal");
+    if (modal) modal.classList.add("hidden");
+    const drawer = document.getElementById("ghLogsDrawer");
+    if (drawer) drawer.classList.add("hidden");
   }
 
   function toggleConnectForm() {
-    const card = document.getElementById("connectRepoCard");
-    if (card) {
-      card.classList.toggle("hidden");
+    const modal = document.getElementById("connectRepoModal");
+    if (modal) {
+      if (modal.classList.contains("hidden")) openConnectModal();
+      else closeConnectModal();
     }
+  }
+
+  async function fetchRemoteBranches() {
+    const providerEl = document.getElementById("connectProvider");
+    const nameEl = document.getElementById("connectRepoName");
+    const tokenEl = document.getElementById("connectToken");
+    const fetchBtn = document.getElementById("btnFetchBranches");
+    const branchSelect = document.getElementById("connectBranchSelect");
+    const statusBadge = document.getElementById("branchStatusBadge");
+    const previewBox = document.getElementById("remoteMetaPreview");
+
+    const provider = (providerEl && providerEl.value) || "github";
+    const repoName = (nameEl && nameEl.value.trim()) || "";
+    const token = (tokenEl && tokenEl.value.trim()) || "";
+
+    if (!repoName) {
+      if (window.showToast) window.showToast("Please enter a repository name or clone URL first.", "warning");
+      else alert("Please enter a repository name or clone URL first.");
+      return;
+    }
+
+    if (fetchBtn) {
+      fetchBtn.disabled = true;
+      fetchBtn.innerHTML = `<span class="inline-flex items-center gap-1.5">${window.RegIcons.svg('spinner', 'w-3.5 h-3.5')} Probing...</span>`;
+    }
+
+    try {
+      const res = await fetch("/api/workspaces/branches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: provider,
+          repo_name: repoName,
+          auth_token: token || undefined,
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      let rawBranches = Array.isArray(data.branches) ? data.branches : [];
+      // Cleanly filter out git remote artifact names like origin, HEAD, or origin/*
+      const branches = rawBranches.filter(b => b && b !== 'origin' && b !== 'HEAD' && !b.startsWith('origin/'));
+
+      if (branchSelect && branches.length > 0) {
+        branchSelect.innerHTML = "";
+        branches.forEach(b => {
+          const opt = document.createElement("option");
+          opt.value = b;
+          opt.textContent = (b === data.default_branch) ? `${b} (Default Branch)` : b;
+          if (b === data.default_branch) opt.selected = true;
+          branchSelect.appendChild(opt);
+        });
+      }
+
+      if (statusBadge) {
+        statusBadge.textContent = `${data.branches.length} branches discovered • Default: ${data.default_branch}`;
+        statusBadge.className = "text-[10px] font-mono text-emerald-400 font-semibold";
+      }
+
+      if (previewBox) {
+        previewBox.classList.remove("hidden");
+        const countEl = document.getElementById("previewBranchCount");
+        const defEl = document.getElementById("previewDefaultBranch");
+        const shaEl = document.getElementById("previewLatestSha");
+        if (countEl) countEl.textContent = `${data.branches.length} remote branches`;
+        if (defEl) defEl.textContent = `Default: ${data.default_branch}`;
+        if (shaEl) shaEl.textContent = data.latest_sha ? `HEAD: ${data.latest_sha}` : "";
+      }
+
+      if (window.showToast) {
+        window.showToast(`Discovered ${data.branches.length} branches for ${data.repo_name} (Default: ${data.default_branch})`, "success");
+      }
+    } catch (err) {
+      if (window.showToast) window.showToast(`Failed to probe remote branches: ${err.message}`, "error");
+      else alert(`Failed to probe remote branches: ${err.message}`);
+    } finally {
+      if (fetchBtn) {
+        fetchBtn.disabled = false;
+        fetchBtn.innerHTML = `<svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg><span>Fetch Branches</span>`;
+      }
+    }
+  }
+
+  function setConnectionProgress(stepIndex, percent, stageText) {
+    const bar = document.getElementById("repoProgressBar");
+    const pct = document.getElementById("repoProgressPercent");
+    const stage = document.getElementById("repoProgressStageText");
+
+    if (bar) bar.style.width = `${percent}%`;
+    if (pct) pct.textContent = `${percent}%`;
+    if (stage) stage.textContent = stageText;
+
+    for (let i = 1; i <= 5; i++) {
+      const stepEl = document.getElementById(`repoStep${i}`);
+      if (!stepEl) continue;
+      const icon = stepEl.querySelector(".step-icon");
+      if (i < stepIndex) {
+        stepEl.className = "flex items-center space-x-2.5 text-emerald-400 font-semibold";
+        if (icon) {
+          icon.className = "step-icon w-4 h-4 rounded bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-[10px]";
+          icon.innerHTML = "&#10003;";
+        }
+      } else if (i === stepIndex) {
+        stepEl.className = "flex items-center space-x-2.5 text-amber-400 font-bold";
+        if (icon) {
+          icon.className = "step-icon w-4 h-4 rounded border border-amber-400 flex items-center justify-center text-[10px] font-mono animate-pulse";
+          icon.innerHTML = `${i}`;
+        }
+      } else {
+        stepEl.className = "flex items-center space-x-2.5 text-slate-500";
+        if (icon) {
+          icon.className = "step-icon w-4 h-4 rounded border border-slate-700 flex items-center justify-center text-[10px] font-mono";
+          icon.innerHTML = `${i}`;
+        }
+      }
+    }
+  }
+
+  function dismissProgressOverlay() {
+    const overlay = document.getElementById("repoConnectionProgressOverlay");
+    if (overlay) overlay.classList.add("hidden");
+    if (window.AppState) window.AppState.isConnectingRepo = false;
   }
 
   async function submitConnectRepo() {
     const providerEl = document.getElementById("connectProvider");
     const nameEl = document.getElementById("connectRepoName");
+    const branchSelect = document.getElementById("connectBranchSelect");
     const branchEl = document.getElementById("connectBranch");
     const tokenEl = document.getElementById("connectToken");
     const submitBtn = document.getElementById("submitConnectBtn");
+    const overlay = document.getElementById("repoConnectionProgressOverlay");
+    const errorBox = document.getElementById("repoProgressErrorBox");
+    const errorMsg = document.getElementById("repoProgressErrorMsg");
+    const targetSub = document.getElementById("repoProgressTargetSub");
 
     const provider = (providerEl && providerEl.value) || "github";
     const repoName = (nameEl && nameEl.value.trim()) || "";
-    const branch = (branchEl && branchEl.value.trim()) || "main";
+    const branch = (branchSelect && branchSelect.value) || (branchEl && branchEl.value.trim()) || "main";
     const token = (tokenEl && tokenEl.value.trim()) || "";
 
     if (!repoName) {
-      alert("Please enter a valid remote repository name or clone URL (e.g. 'owner/repo' or 'https://github.com/owner/repo').");
+      if (window.showToast) window.showToast("Please enter a valid remote repository name or clone URL.", "warning");
+      else alert("Please enter a valid remote repository name or clone URL.");
       return;
     }
 
+    if (window.AppState) window.AppState.isConnectingRepo = true;
+    if (overlay) overlay.classList.remove("hidden");
+    if (errorBox) errorBox.classList.add("hidden");
+    if (targetSub) targetSub.textContent = `${repoName} @ ${branch}`;
+
+    setConnectionProgress(1, 15, "Probing remote Git transport & verifying credentials...");
+
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.innerHTML = `<span class="inline-flex items-center gap-1.5">${window.RegIcons.svg('spinner', 'w-3.5 h-3.5')} <span>Verifying & Cloning...</span></span>`;
+      submitBtn.innerHTML = `<span class="inline-flex items-center gap-1.5">${window.RegIcons.svg('spinner', 'w-3.5 h-3.5')} <span>Connecting...</span></span>`;
     }
 
     try {
+      setTimeout(() => {
+        if (window.AppState && window.AppState.isConnectingRepo) {
+          setConnectionProgress(2, 40, "Shallow cloning Git repository tree & fetching refs...");
+        }
+      }, 700);
+
+      setTimeout(() => {
+        if (window.AppState && window.AppState.isConnectingRepo) {
+          setConnectionProgress(3, 70, "Parsing HCL / OpenTofu AST declarations & scanning files...");
+        }
+      }, 1800);
+
+      setTimeout(() => {
+        if (window.AppState && window.AppState.isConnectingRepo) {
+          setConnectionProgress(4, 88, "Constructing topological DAG & database registration...");
+        }
+      }, 3000);
+
       const res = await fetch("/api/workspaces/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -187,30 +327,245 @@ window.GitHubModule = (function () {
       }
 
       const connected = await res.json();
+
+      setConnectionProgress(5, 100, "Workspace initialized & topology synchronized!");
+
       if (nameEl) nameEl.value = "";
       if (tokenEl) tokenEl.value = "";
 
-      // Refresh workspaces selector and repos list
       if (window.loadWorkspaces) await window.loadWorkspaces();
       await loadConnectedRepos();
 
-      // Auto-select in workspace selector
       const selector = document.getElementById("workspaceSelector");
       if (selector && connected.path) {
         selector.value = connected.path;
-        if (window.AppState) window.AppState.currentWorkspace = connected.path;
+      }
+      if (window.AppState) {
+        window.AppState.currentWorkspace = connected.path;
       }
 
-      if (window.showToast) {
-        window.showToast(`Connected ${connected.name}: ${connected.resource_count || 0} declarative resources verified`, "success");
+      if (window.onTabActivated && window.AppState) {
+        window.onTabActivated(window.AppState.activeTab);
       }
+
+      setTimeout(() => {
+        if (overlay) overlay.classList.add("hidden");
+        if (window.AppState) window.AppState.isConnectingRepo = false;
+        closeConnectModal();
+        if (window.showToast) {
+          window.showToast(`Connected ${connected.name}: ${connected.resource_count || 0} declarative resources verified`, "success");
+        }
+      }, 700);
+
     } catch (e) {
-      alert(`Failed to connect repository: ${e.message}`);
+      if (window.AppState) window.AppState.isConnectingRepo = false;
+      if (errorBox) {
+        errorBox.classList.remove("hidden");
+        if (errorMsg) errorMsg.textContent = e.message;
+      } else {
+        alert(`Failed to connect repository: ${e.message}`);
+      }
+      const bar = document.getElementById("repoProgressBar");
+      if (bar) {
+        bar.className = "h-full bg-rose-500 rounded-full";
+        bar.style.width = "100%";
+      }
+      const stage = document.getElementById("repoProgressStageText");
+      if (stage) {
+        stage.textContent = "Error occurred during connection.";
+        stage.className = "text-rose-400 font-semibold";
+      }
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.innerHTML = `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg><span>Verify & Connect Repository</span>`;
       }
+    }
+  }
+
+  async function loadConnectedRepos() {
+    try {
+      const res = await fetch("/api/workspaces");
+      if (res.ok) {
+        connectedRepos = await res.json();
+        await renderConnectedRepos();
+      }
+    } catch (e) {
+      console.error("Failed to load connected repositories", e);
+    }
+  }
+
+  async function renderConnectedRepos() {
+    const listEl = document.getElementById("connectedReposList");
+    if (!listEl) return;
+
+    if (!connectedRepos || connectedRepos.length === 0) {
+      listEl.innerHTML = `
+        <div class="p-3.5 text-center rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-400">
+          No remote repositories connected. Use the form above to connect a GitHub or GitLab repository.
+        </div>
+      `;
+      return;
+    }
+
+    const metaPromises = connectedRepos.map(async (r) => {
+      try {
+        const metaRes = await fetch(`/api/workspaces/${encodeURIComponent(r.id)}/metadata`);
+        if (metaRes.ok) {
+          return await metaRes.json();
+        }
+      } catch (err) {
+        console.warn("Failed to fetch metadata for", r.id, err);
+      }
+      return null;
+    });
+
+    const metas = await Promise.all(metaPromises);
+
+    listEl.innerHTML = connectedRepos.map((r, idx) => {
+      const meta = metas[idx] || {};
+      const isGitLab = (r.name && r.name.toLowerCase().includes("gitlab")) || (r.description && r.description.toLowerCase().includes("gitlab"));
+      const providerBadge = isGitLab
+        ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-orange-500/10 text-orange-400 border border-orange-500/30">GitLab</span>`
+        : `<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-500/10 text-slate-300 border border-slate-600/30">GitHub</span>`;
+
+      const resBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">${meta.resource_count ?? r.resource_count ?? 0} resources</span>`;
+      const filesBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">${meta.tf_files_count || 0} .tf files</span>`;
+
+      const curBranch = meta.current_branch || "main";
+      let branches = (meta.available_branches && meta.available_branches.length > 0)
+        ? meta.available_branches
+        : [curBranch];
+      // Defensive filter: eliminate remote tracking alias 'origin' or 'HEAD'
+      branches = branches.filter(b => b && b !== "origin" && b !== "HEAD" && !b.startsWith("origin/"));
+      if (branches.length === 0) branches = [curBranch];
+
+      const branchOptions = branches.map(b => `<option value="${b}" ${b === curBranch ? 'selected' : ''}>${b}</option>`).join("");
+
+      const latestCommit = meta.latest_commit;
+      const commitHtml = latestCommit
+        ? `<div class="flex items-center gap-2 flex-wrap text-[11px] text-slate-300">
+             <span class="font-mono text-amber-400 font-bold bg-amber-500/10 border border-amber-500/30 px-1.5 py-0.2 rounded">${latestCommit.sha}</span>
+             <span class="truncate max-w-[280px] font-medium" title="${latestCommit.message}">${latestCommit.message}</span>
+             <span class="text-slate-500 font-mono">&bull; ${latestCommit.author} (${latestCommit.date})</span>
+           </div>`
+        : `<span class="text-slate-500 font-mono text-[11px]">Working tree clean &bull; HEAD synchronized</span>`;
+
+      const recentCommitsList = (meta.recent_commits && meta.recent_commits.length > 0)
+        ? meta.recent_commits.map(c => `
+            <div class="p-2 rounded bg-slate-950 border border-slate-800 flex items-start space-x-2.5 text-xs">
+              <span class="font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[10px] shrink-0">${c.sha}</span>
+              <div class="flex-1 min-w-0">
+                <div class="text-slate-200 font-medium truncate">${c.message}</div>
+                <div class="text-[10px] text-slate-400 font-mono mt-0.5">${c.author} &bull; ${c.date}</div>
+              </div>
+            </div>
+          `).join("")
+        : `<div class="text-slate-500 text-xs py-2 text-center">No commit logs recorded.</div>`;
+
+      return `
+        <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+          <!-- Top Row: Provider, Path, Resources, Framework -->
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center space-x-2.5 flex-wrap gap-1">
+              ${providerBadge}
+              <span class="font-mono font-bold text-slate-100 text-sm">${r.path}</span>
+              ${resBadge}
+              ${filesBadge}
+              <span class="text-emerald-400 text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-1">
+                Connected
+              </span>
+            </div>
+            <!-- Actions -->
+            <div class="flex items-center space-x-2">
+              <button onclick="window.GitHubModule.syncRepo('${r.id}')" title="Pull latest changes from remote branch" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition cursor-pointer flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                <span>Sync</span>
+              </button>
+              <button onclick="window.GitHubModule.toggleCommitHistory('${r.id}')" title="Toggle commit history and change logs" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition cursor-pointer flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+                <span>History</span>
+              </button>
+              <button onclick="window.GitHubModule.disconnectRepo('${r.id}')" class="px-3 py-1.5 rounded-lg bg-rose-600/10 hover:bg-rose-600/20 text-rose-400 border border-rose-500/30 text-xs font-medium transition cursor-pointer">
+                Disconnect
+              </button>
+            </div>
+          </div>
+
+          <!-- Middle Row: Branch Selection & Latest Commit -->
+          <div class="flex items-center justify-between p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 flex-wrap gap-3">
+            <!-- Branch Switcher -->
+            <div class="flex items-center space-x-2">
+              <span class="text-xs text-slate-400 font-bold uppercase text-[10px] tracking-wider">Branch:</span>
+              <div class="flex items-center space-x-1.5">
+                <select id="branchSelect_${r.id}" class="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 font-mono text-xs focus:outline-none focus:border-amber-500 cursor-pointer">
+                  ${branchOptions}
+                </select>
+                <button onclick="window.GitHubModule.switchBranch('${r.id}')" class="px-2 py-1 rounded bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[11px] font-semibold transition cursor-pointer">
+                  Switch
+                </button>
+              </div>
+            </div>
+
+            <!-- Latest Commit Info -->
+            <div class="flex items-center">
+              ${commitHtml}
+            </div>
+          </div>
+
+          <!-- Collapsible Commit History Drawer -->
+          <div id="commitHistory_${r.id}" class="hidden space-y-2 pt-2 border-t border-slate-800/80">
+            <div class="text-[10px] font-bold uppercase text-slate-400 tracking-wider flex items-center justify-between">
+              <span>Recent Commit Log (Last 10 Commits)</span>
+              <span class="text-[10px] font-mono text-slate-500">Local &bull; origin/${curBranch}</span>
+            </div>
+            <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              ${recentCommitsList}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function toggleCommitHistory(repoId) {
+    const el = document.getElementById(`commitHistory_${repoId}`);
+    if (el) el.classList.toggle("hidden");
+  }
+
+  async function switchBranch(repoId) {
+    const select = document.getElementById(`branchSelect_${repoId}`);
+    if (!select) return;
+    const branch = select.value;
+
+    if (window.showToast) window.showToast(`Switching to branch '${branch}'...`, "info");
+
+    try {
+      const res = await fetch(`/api/workspaces/${encodeURIComponent(repoId)}/switch-branch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branch: branch })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+
+      const updated = await res.json();
+      if (window.loadWorkspaces) await window.loadWorkspaces();
+      await loadConnectedRepos();
+
+      if (window.onTabActivated && window.AppState) {
+        window.onTabActivated(window.AppState.activeTab);
+      }
+
+      if (window.showToast) {
+        window.showToast(`Switched repository to '${branch}': ${updated.resource_count || 0} resources verified`, "success");
+      }
+    } catch (e) {
+      if (window.showToast) window.showToast(`Failed to switch branch: ${e.message}`, "error");
+      else alert(`Failed to switch branch: ${e.message}`);
     }
   }
 
@@ -224,14 +579,55 @@ window.GitHubModule = (function () {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || `HTTP ${res.status}`);
       }
-      const updated = await res.json();
+      const syncData = await res.json();
+
+      const modal = document.getElementById("gitSyncModal");
+      if (modal) {
+        const nameEl = document.getElementById("syncModalRepoName");
+        const branchBadge = document.getElementById("syncModalBranchBadge");
+        const statusText = document.getElementById("syncModalStatusText");
+        const diffStat = document.getElementById("syncModalDiffStat");
+        const countEl = document.getElementById("syncModalCommitCount");
+        const listEl = document.getElementById("syncModalCommitList");
+
+        if (nameEl && syncData.workspace) nameEl.textContent = syncData.workspace.name;
+        if (branchBadge && syncData.workspace) branchBadge.textContent = syncData.workspace.description;
+        if (statusText) statusText.textContent = syncData.message;
+        if (diffStat) diffStat.textContent = syncData.diff_summary || "Working tree is clean. Synchronized with remote.";
+        if (countEl) countEl.textContent = `${(syncData.new_commits || []).length} commits inspected`;
+
+        if (listEl) {
+          if (syncData.new_commits && syncData.new_commits.length > 0) {
+            listEl.innerHTML = syncData.new_commits.map(c => `
+              <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-start space-x-3 text-xs">
+                <span class="font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[11px] shrink-0">${c.sha}</span>
+                <div class="flex-1 min-w-0">
+                  <div class="font-medium text-slate-200">${c.message}</div>
+                  <div class="text-[11px] text-slate-400 font-mono mt-0.5">${c.author} &bull; ${c.date}</div>
+                </div>
+              </div>
+            `).join("");
+          } else {
+            listEl.innerHTML = `<div class="text-xs text-slate-500 py-3 text-center">Repository is clean and up to date with remote HEAD.</div>`;
+          }
+        }
+
+        modal.classList.remove("hidden");
+      }
+
       if (window.loadWorkspaces) await window.loadWorkspaces();
       await loadConnectedRepos();
+
+      if (window.onTabActivated && window.AppState) {
+        window.onTabActivated(window.AppState.activeTab);
+      }
+
       if (window.showToast) {
-        window.showToast(`Synced ${updated.name}: ${updated.resource_count || 0} resources verified`, "success");
+        window.showToast(syncData.message, "success");
       }
     } catch (e) {
-      alert(`Failed to sync repository: ${e.message}`);
+      if (window.showToast) window.showToast(`Sync failed: ${e.message}`, "error");
+      else alert(`Failed to sync repository: ${e.message}`);
     }
   }
 
@@ -294,16 +690,48 @@ window.GitHubModule = (function () {
     }
   }
 
-  function updateNavBadge() {
-    const badge = document.getElementById("githubNavBadge");
-    if (!badge) return;
-    const awaiting = stagedPRs.filter(p => p.status === "AWAITING_HUMAN_APPROVAL").length;
-    if (awaiting > 0) {
-      badge.textContent = awaiting;
-      badge.classList.remove("hidden");
-    } else {
-      badge.classList.add("hidden");
+  async function refreshPRQueue() {
+    const btn = document.getElementById("refreshQueueBtn");
+    const icon = document.getElementById("refreshQueueIcon");
+    const text = document.getElementById("refreshQueueText");
+
+    if (btn) btn.disabled = true;
+    if (icon) icon.classList.add("animate-spin");
+    if (text) text.textContent = "Refreshing...";
+
+    try {
+      await loadPRs();
+      await loadDbStats();
+      if (window.showToast) {
+        const count = stagedPRs.length;
+        window.showToast(`PR/MR Queue refreshed: ${count} item${count === 1 ? '' : 's'} in queue`, "info");
+      }
+    } catch (err) {
+      if (window.showToast) window.showToast(`Failed to refresh queue: ${err.message}`, "error");
+    } finally {
+      setTimeout(() => {
+        if (icon) icon.classList.remove("animate-spin");
+        if (text) text.textContent = "Refresh Queue";
+        if (btn) btn.disabled = false;
+      }, 500);
     }
+  }
+
+  function updateNavBadge() {
+    const awaiting = stagedPRs.filter(p => p.status === "AWAITING_HUMAN_APPROVAL").length;
+    const badges = [
+      document.getElementById("githubNavBadge"),
+      document.getElementById("queueNavBadge")
+    ];
+    badges.forEach(badge => {
+      if (!badge) return;
+      if (awaiting > 0) {
+        badge.textContent = awaiting;
+        badge.classList.remove("hidden");
+      } else {
+        badge.classList.add("hidden");
+      }
+    });
   }
 
   function renderPRQueue() {
@@ -562,20 +990,19 @@ jobs:
   }
 
   async function toggleWebhookLogs() {
-    const drawer = document.getElementById("ghLogsDrawer");
-    if (!drawer) return;
-    const isHidden = drawer.classList.contains("hidden");
+    const modal = document.getElementById("ghLogsModal") || document.getElementById("ghLogsDrawer");
+    if (!modal) return;
+    const isHidden = modal.classList.contains("hidden");
     if (isHidden) {
-      drawer.classList.remove("hidden");
+      modal.classList.remove("hidden");
       await loadWebhookLogs();
     } else {
-      drawer.classList.add("hidden");
+      modal.classList.add("hidden");
     }
   }
 
   function closeLogsDrawer() {
-    const drawer = document.getElementById("ghLogsDrawer");
-    if (drawer) drawer.classList.add("hidden");
+    closeLogsModal();
   }
 
   async function loadWebhookLogs() {
@@ -649,7 +1076,18 @@ jobs:
     loadPRs,
     loadConnectedRepos,
     toggleConnectForm,
+    openConnectModal,
+    closeConnectModal,
+    openInstructionsModal,
+    closeInstructionsModal,
+    openLogsModal,
+    closeLogsModal,
+    refreshPRQueue,
+    fetchRemoteBranches,
     submitConnectRepo,
+    dismissProgressOverlay,
+    switchBranch,
+    toggleCommitHistory,
     syncRepo,
     disconnectRepo,
     switchGuideTab,
@@ -666,3 +1104,23 @@ jobs:
     dispatchTestNotification
   };
 })();
+
+// Global convenience bindings for inline onclick handlers
+window.openConnectModal = window.GitHubModule.openConnectModal;
+window.closeConnectModal = window.GitHubModule.closeConnectModal;
+window.openInstructionsModal = window.GitHubModule.openInstructionsModal;
+window.closeInstructionsModal = window.GitHubModule.closeInstructionsModal;
+window.openLogsModal = window.GitHubModule.openLogsModal;
+window.closeLogsModal = window.GitHubModule.closeLogsModal;
+window.refreshPRQueue = window.GitHubModule.refreshPRQueue;
+
+window.fetchRemoteBranches = function() {
+  if (window.GitHubModule && window.GitHubModule.fetchRemoteBranches) {
+    return window.GitHubModule.fetchRemoteBranches.apply(window.GitHubModule, arguments);
+  }
+};
+window.submitConnectRepo = function() {
+  if (window.GitHubModule && window.GitHubModule.submitConnectRepo) {
+    return window.GitHubModule.submitConnectRepo.apply(window.GitHubModule, arguments);
+  }
+};

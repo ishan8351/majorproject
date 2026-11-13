@@ -2,7 +2,7 @@
 
 Autonomous compliance remediation engine for Infrastructure as Code (IaC) that enforces a zero-destruction invariant.
 
-RegRadar bridges static security scanners and automated code repair. Traditional tools like Checkov flag misconfigurations, but leave developers with manual backlogs. Unconstrained large language models can draft patches, but often hallucinate invalid arguments or edit immutable attributes that trigger cloud resource recreations and state loss. 
+Static security scanners such as Checkov detect misconfigurations, but leave engineers with manual remediation backlogs. Unconstrained language models can draft patches, but frequently modify immutable attributes or introduce schema changes that trigger resource replacement and state loss.
 
 RegRadar uses a neuro-symbolic pipeline: it computes resource dependency graphs and network centrality metrics to bound risk, generates targeted HCL fixes, and verifies those patches against ephemeral OpenTofu execution plan diffs before allowing any change into version control.
 
@@ -81,7 +81,7 @@ tofu --version
 
 ## Usage
 
-RegRadar provides a single command-line interface for scanning, verification, and autonomous repair.
+RegRadar provides a single command-line interface for scanning, verification, interactive review, benchmarking, and starting the web studio.
 
 ### 1. Topological Blast-Radius Scan
 Parses all `.tf` files in a directory, constructs the resource dependency DAG, calculates betweenness centrality, and prints a risk assessment table:
@@ -127,7 +127,18 @@ python -m regradar.cli remediate tests/fixtures/multi_tier
 python -m regradar.cli remediate tests/fixtures/multi_tier --apply
 ```
 
-### 5. Empirical Benchmarking & Ablation Study
+### 5. Interactive Operator Review
+Starts an interactive human-in-the-loop review session in the terminal. Automatically verifies safe leaf patches and prompts operators before touching high-centrality foundational components:
+
+```bash
+# Interactive terminal review
+python -m regradar.cli review tests/fixtures/multi_tier
+
+# Non-interactive mode for CI/CD pipelines
+python -m regradar.cli review tests/fixtures/multi_tier -y --json review_audit.json
+```
+
+### 6. Empirical Benchmarking and Ablation Study
 Runs a comparative evaluation against an unconstrained generative AI baseline, measuring remediation rates, invariant preservation, and avoided outages:
 
 ```bash
@@ -136,36 +147,79 @@ python -m regradar.cli benchmark tests/fixtures/multi_tier \
   --latex benchmark_multi_tier.tex
 ```
 
+### 7. Launch Web Studio and Operations Console
+Launches the FastAPI backend and browser-based operations studio:
+
+```bash
+# Start server on default port (http://127.0.0.1:8000)
+python -m regradar.cli serve
+
+# Bind to all interfaces with a specific workspace
+python -m regradar.cli serve --host 0.0.0.0 --port 8000 --workspace tests/fixtures/multi_tier
+```
+
+Open `http://127.0.0.1:8000` for the project landing page or `http://127.0.0.1:8000/dashboard` for the interactive Cytoscape graph console.
+
+---
+
+## Web Studio and Operations Console
+
+The RegRadar Web Studio includes:
+* **Interactive Graph Visualization:** Cytoscape-powered topological viewer color-coded by blast radius tier (`CRITICAL_ROOT`, `INTERMEDIATE`, `LEAF_SAFE`). Clicking any node displays upstream dependencies, downstream impact, and active compliance findings.
+* **Pre-Flight Sandbox Runner:** Browser-based simulation interface that executes `tofu plan -json` against proposed fixes and renders live resource diffs.
+* **GitHub Operations Console:** Tracks incoming pull requests, displays automated blast radius assessments, and allows operators to approve or reject staged PRs.
+* **Regulatory Catalog Browser:** Inspects mapped controls across HIPAA, GDPR, NIST SP 800-53, and PCI-DSS.
+
+---
+
+## Documentation
+
+Full technical documentation is located in the `docs/` directory:
+* [Architecture and Engineering Specification](file:///home/chocoT/majorproject/docs/ARCHITECTURE.md): Mathematical formulations, invariant rules, and swarm agent lifecycle.
+* [CLI Reference](file:///home/chocoT/majorproject/docs/CLI_REFERENCE.md): Detailed subcommands, arguments, exit codes, and usage examples.
+* [REST API Reference](file:///home/chocoT/majorproject/docs/API_REFERENCE.md): Endpoints, request schemas, response models, and curl commands.
+* [GitHub Integration Guide](file:///home/chocoT/majorproject/docs/GITHUB_INTEGRATION.md): Webhook setup, HMAC-SHA256 verification, and branch protection policies.
+* [Regulatory Rules Catalog](file:///home/chocoT/majorproject/rules/README.md): Structure and schema for defining custom regulatory checks.
+
 ---
 
 ## Project Structure
 
 ```
 regradar/
-├── models.py                  # Core data definitions and risk tier enums
-├── cli.py                     # Command-line interface and terminal reports
-├── parser/
-│   ├── hcl_parser.py          # Reads .tf files into normalized AST structures
-│   └── reference_extractor.py # Resolves variable interpolations and depends_on lists
-├── graph/
+├── api/                       # FastAPI REST backend and webhook handlers
+│   ├── models.py              # Pydantic schemas for API requests and responses
+│   ├── routes.py              # Endpoint routers for scan, audit, sandbox, and webhooks
+│   └── server.py              # Application factory and lifespan configuration
+├── benchmark/                 # Empirical evaluation and baseline comparisons
+│   ├── baselines.py           # Unconstrained LLM baseline implementation
+│   ├── evaluator.py           # Benchmark runner measuring fix rates and safety
+│   ├── models.py              # Benchmark data structures
+│   └── report_generator.py    # Exporters for Markdown and LaTeX tables
+├── cli.py                     # Command-line interface definitions and commands
+├── graph/                     # Graph modeling and centrality calculations
 │   ├── builder.py             # Constructs NetworkX directed dependency graphs
-│   └── centrality.py          # Calculates betweenness centrality and blast radius
-├── invariant/
-│   ├── models.py              # Invariant violation types and change diff models
-│   ├── plan_parser.py         # Parses tofu show -json plan outputs
-│   ├── invariant_engine.py    # Enforces zero-deletion and zero-replacement rules
-│   └── sandbox.py             # Isolated execution runner with mock provider caching
-├── remediation/
-│   ├── models.py              # Compliance violation and patch proposal schemas
-│   ├── scanner.py             # Checkov static analysis wrapper
-│   ├── knowledge_base.py      # Grounding layer mapping HIPAA, GDPR, NIST to HCL fixes
+│   └── centrality.py          # Betweenness centrality and blast radius formulas
+├── invariant/                 # Sandboxed execution and invariant checking
+│   ├── invariant_engine.py    # Deterministic zero-destruction rules
+│   ├── models.py              # Invariant violation and diff schemas
+│   ├── plan_parser.py         # Parses OpenTofu execution plan JSON outputs
+│   └── sandbox.py             # Isolated execution runner with mock cloud providers
+├── models.py                  # Core data definitions and risk tier enums
+├── parser/                    # HCL parsing and reference resolution
+│   ├── hcl_parser.py          # Converts .tf files into normalized AST structures
+│   └── reference_extractor.py # Resolves variable interpolations and dependencies
+├── remediation/               # Multi-agent autonomous remediation swarm
 │   ├── agents.py              # Swarm agents (Auditor, Planner, Synthesizer, Supervisor)
-│   └── swarm_coordinator.py   # Closed-loop remediation lifecycle coordinator
-└── benchmark/
-    ├── models.py              # Benchmark metrics and comparative result models
-    ├── baselines.py           # Unconstrained LLM empirical error baseline
-    ├── evaluator.py           # Evaluation runner measuring fix rates and safety
-    └── report_generator.py    # Exporters for Rich, Markdown, and LaTeX tables
+│   ├── knowledge_base.py      # Grounding layer mapping HIPAA, GDPR, NIST to HCL fixes
+│   ├── models.py              # Violation and patch data models
+│   ├── scanner.py             # Checkov static analysis wrapper
+│   └── swarm_coordinator.py   # Closed-loop remediation coordinator
+└── web/                       # Web Studio assets
+    ├── css/                   # Stylesheets and theme variables
+    ├── dashboard.html         # Interactive graph and operations console
+    ├── index.html             # Product landing page and architecture overview
+    └── js/                    # Client modules (topology, github, sandbox, swarm)
 ```
 
 ---
@@ -186,7 +240,7 @@ Evaluation performed on an enterprise multi-tier AWS topology (10 resources, 11 
 
 ## Running Tests
 
-The test suite covers parser extraction, DAG construction, invariant enforcement, agent gating, and benchmarking logic. Run all tests with pytest:
+The test suite covers parser extraction, DAG construction, invariant enforcement, agent gating, web API routes, and benchmarking logic. Run all tests with pytest:
 
 ```bash
 .venv/bin/pytest -v

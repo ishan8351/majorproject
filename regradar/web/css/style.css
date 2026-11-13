@@ -3,12 +3,9 @@
 :root {
   --bg-primary: var(--bg-base);
   --bg-secondary: var(--bg-surface);
-  --bg-card: var(--bg-card);
-  --bg-hover: var(--bg-hover);
   --border-color: var(--border-subtle);
   --text-primary: var(--text-main);
   --text-secondary: var(--text-muted);
-  --text-muted: var(--text-faint);
   --accent-cyan: var(--accent-primary);
   --accent-blue: #3b82f6;
   --accent-purple: #8b5cf6;
@@ -19,6 +16,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 88px;
 }
 
 body {
@@ -106,24 +104,249 @@ body {
   border: 1px solid var(--risk-leaf);
 }
 
-/* Subtle animation utilities */
-@keyframes pulse-subtle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.65; }
-}
-.animate-pulse-subtle {
-  animation: pulse-subtle 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+/* ========================================================================= */
+/* 1. SEAMLESS TOP HEADER & POPPING FLOATING SCROLLED NAVBAR                 */
+/* ========================================================================= */
+#landingHeaderWrapper {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 50 !important;
+  pointer-events: none !important;
+  padding-top: 1.5rem;
+  padding-bottom: 0.75rem;
+  transition: padding 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: padding;
 }
 
-@keyframes float-subtle {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-4px); }
-}
-.animate-float-subtle {
-  animation: float-subtle 4s ease-in-out infinite;
+#landingHeader {
+  width: 100%;
+  max-width: 1360px;
+  background-color: transparent !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: 1.25rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  transition: max-width 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              backdrop-filter 0.35s ease,
+              padding 0.3s ease,
+              transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: max-width, box-shadow, transform, background-color;
 }
 
-/* Landing Page Visual Highlights */
+/* Scrolled state: POPS OUT into a spacious, floating pill */
+#landingHeaderWrapper.scrolled,
+#landingHeaderWrapper.is-compact {
+  padding-top: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+#landingHeaderWrapper.scrolled #landingHeader,
+#landingHeaderWrapper.is-compact #landingHeader {
+  max-width: 1080px !important; /* Generous, comfortably spaced out footprint - NOT squeezed */
+  border-radius: 9999px !important;
+  padding-left: 2rem !important;
+  padding-right: 2rem !important;
+  transform: translateY(0);
+  animation: navbar-pop-out 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes navbar-pop-out {
+  0% {
+    transform: translateY(-6px) scale(0.98);
+    box-shadow: none;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+[data-theme="dark"] #landingHeaderWrapper.scrolled #landingHeader,
+[data-theme="dark"] #landingHeaderWrapper.is-compact #landingHeader {
+  background-color: rgba(15, 23, 42, 0.88) !important;
+  border-color: rgba(71, 85, 105, 0.8) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  box-shadow: 0 20px 48px -10px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+
+[data-theme="light"] #landingHeaderWrapper.scrolled #landingHeader,
+[data-theme="light"] #landingHeaderWrapper.is-compact #landingHeader {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(214, 211, 209, 0.85) !important;
+  backdrop-filter: blur(20px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+  box-shadow: 0 18px 42px -10px rgba(45, 35, 20, 0.12), 0 0 0 1px rgba(214, 211, 209, 0.7) !important;
+}
+
+/* Smooth grid-row collapse for navbar subtitle (zero layout snap) */
+.landing-subtitle-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translateY(0);
+  transition: grid-template-rows 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.25s ease,
+              transform 0.25s ease;
+}
+
+#landingHeaderWrapper.scrolled .landing-subtitle-collapse,
+#landingHeaderWrapper.is-compact .landing-subtitle-collapse {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-2px);
+}
+
+/* Remove Dark/Light toggle once navbar shrinks to prevent capturing space uselessly */
+#landingHeaderWrapper.scrolled #landingHeader .theme-segmented-group,
+#landingHeaderWrapper.is-compact #landingHeader .theme-segmented-group {
+  display: none !important;
+}
+
+.landing-header-subtitle {
+  overflow: hidden;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+
+/* Brand Mark Subtle Light Sheen */
+.landing-brand-mark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 25%, rgba(255, 255, 255, 0.35) 50%, transparent 75%);
+  transform: translateX(-130%);
+  transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.group:hover .landing-brand-mark::after {
+  transform: translateX(130%);
+}
+
+/* Sliding Underline Nav Links */
+.landing-nav-link {
+  position: relative;
+}
+.landing-nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1.5px;
+  border-radius: 9999px;
+  background-color: var(--accent-primary);
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.landing-nav-link:hover::after,
+.landing-nav-link.nav-active::after {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+.landing-nav-link.nav-active {
+  color: var(--accent-primary) !important;
+}
+
+/* ========================================================================= */
+/* 2. VIEWPORT REVEALS & CURSOR SPECULAR SPOTLIGHT                           */
+/* ========================================================================= */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+[data-reveal].is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+[data-reveal][data-delay="1"] { transition-delay: 65ms; }
+[data-reveal][data-delay="2"] { transition-delay: 130ms; }
+[data-reveal][data-delay="3"] { transition-delay: 195ms; }
+[data-reveal][data-delay="4"] { transition-delay: 260ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Subtle Cursor-Tracking Specular Spotlight */
+[data-spotlight] {
+  --mouse-x: 50%;
+  --mouse-y: 50%;
+  --spotlight-opacity: 0;
+  position: relative;
+}
+
+[data-spotlight]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    280px circle at var(--mouse-x) var(--mouse-y),
+    rgba(245, 158, 11, 0.075),
+    transparent 72%
+  );
+  opacity: var(--spotlight-opacity);
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+[data-theme="light"] [data-spotlight]::before {
+  background: radial-gradient(
+    280px circle at var(--mouse-x) var(--mouse-y),
+    rgba(180, 83, 9, 0.055),
+    transparent 72%
+  );
+}
+
+/* ========================================================================= */
+/* 3. HERO BACKDROP, TYPOGRAPHY SHEEN & TACTILE BUTTONS                      */
+/* ========================================================================= */
+.hero-grid-backdrop {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 68% 60% at 50% 38%, #000 35%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 68% 60% at 50% 38%, #000 35%, transparent 100%);
+  animation: grid-breathe 16s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-theme="light"] .hero-grid-backdrop {
+  background-image:
+    linear-gradient(to right, rgba(120, 100, 70, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(120, 100, 70, 0.07) 1px, transparent 1px);
+}
+
+@keyframes grid-breathe {
+  0% { opacity: 0.45; }
+  100% { opacity: 0.85; }
+}
+
 .landing-hero-glow {
   position: absolute;
   top: -150px;
@@ -137,25 +360,127 @@ body {
   z-index: 0;
 }
 
+.hero-status-ping {
+  animation: calm-ping 3.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes calm-ping {
+  0% { transform: scale(1); opacity: 0.65; }
+  75%, 100% { transform: scale(2.1); opacity: 0; }
+}
+
+.hero-accent-text {
+  background: linear-gradient(110deg, #fbbf24 0%, #f59e0b 45%, #fde68a 52%, #f59e0b 60%, #d97706 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: subtle-text-shimmer 12s linear infinite;
+}
+
+[data-theme="light"] .hero-accent-text {
+  background: linear-gradient(110deg, #b45309 0%, #92400e 45%, #d97706 52%, #92400e 60%, #78350f 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes subtle-text-shimmer {
+  0% { background-position: 100% center; }
+  100% { background-position: -100% center; }
+}
+
+/* Primary CTA Button Sheen & Tactile Detent */
+.landing-cta-btn {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s ease, filter 0.2s ease;
+}
+.landing-cta-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 75%;
+  height: 100%;
+  background: linear-gradient(105deg, transparent 20%, rgba(255, 255, 255, 0.22) 50%, transparent 80%);
+  transition: left 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.landing-cta-btn:hover {
+  transform: translateY(-1px);
+}
+.landing-cta-btn:hover::after {
+  left: 140%;
+}
+.landing-cta-btn:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.hero-secondary-btn,
+.hero-tertiary-btn {
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s ease, background-color 0.2s ease;
+}
+.hero-secondary-btn:hover,
+.hero-tertiary-btn:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong) !important;
+}
+
+/* ========================================================================= */
+/* 4. HERO METRIC CARDS & INTERACTIVE METRIC EXPLANATION DRAWER              */
+/* ========================================================================= */
+.hero-metric-card {
+  cursor: pointer;
+  transition:
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.24s ease,
+    box-shadow 0.24s ease;
+}
+
+.hero-metric-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong) !important;
+}
+
+.hero-metric-card.metric-selected {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 8px 24px -6px var(--accent-glow);
+}
+
+.hero-card-topline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 24px;
+  opacity: 0.65;
+  transition: width 0.38s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
+}
+
+.hero-metric-card:hover .hero-card-topline {
+  width: 100%;
+  opacity: 1;
+}
+
+/* ========================================================================= */
+/* 5. 6 ENGINEERING PILLAR CARDS — DISTINCT SUBTLE MICRO-ANIMATIONS          */
+/* ========================================================================= */
 .landing-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 1rem;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.26s ease,
+    box-shadow 0.26s ease;
 }
 
 .landing-card:hover {
   border-color: var(--border-strong);
   transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
-}
-
-.interactive-step-btn {
-  transition: all 0.2s ease;
-}
-.interactive-step-btn.active-step {
-  border-color: var(--accent-primary) !important;
-  background-color: var(--accent-subtle) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
 }
 
 .landing-feature-icon {
@@ -168,47 +493,74 @@ body {
   background-color: var(--accent-subtle);
   color: var(--accent-primary);
   border: 1px solid var(--accent-border);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.25s ease;
+}
+
+.pillar-card:hover .landing-feature-icon {
+  transform: scale(1.04);
+}
+
+/* Pillar 1: DAG Nodes Staggered Pulse */
+.pillar-dag .pillar-node-root,
+.pillar-dag .pillar-node-top,
+.pillar-dag .pillar-node-bot {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.pillar-dag:hover .pillar-node-root { transform: scale(1.22); }
+.pillar-dag:hover .pillar-node-top  { transform: scale(1.22); transition-delay: 75ms; }
+.pillar-dag:hover .pillar-node-bot  { transform: scale(1.22); transition-delay: 150ms; }
+
+/* Pillar 2: Swarm CPU Core Illumination */
+.pillar-swarm .pillar-cpu-core {
+  transition: fill 0.3s ease, stroke-width 0.3s ease;
+}
+.pillar-swarm:hover .pillar-cpu-core {
+  fill: rgba(245, 158, 11, 0.28);
+  stroke-width: 2.4;
+}
+
+/* Pillar 3: Sandbox Shield Checkmark Draw */
+.pillar-sandbox .pillar-check-stroke {
+  stroke-dasharray: 14;
+  stroke-dashoffset: 0;
+}
+.pillar-sandbox:hover .pillar-check-stroke {
+  animation: check-redraw 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes check-redraw {
+  0%   { stroke-dashoffset: 14; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* Pillar 4: GraphRAG Optical Lens Shift */
+.pillar-rag .pillar-lens-icon {
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pillar-rag:hover .pillar-lens-icon {
+  transform: translate(-1px, -1px) scale(1.08);
+}
+
+/* Pillar 5: Console Terminal Cursor Double-Blink */
+.pillar-console:hover .pillar-cursor-line {
+  animation: terminal-blink 0.85s steps(2, start) 2;
+}
+@keyframes terminal-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.15; }
+}
+
+/* Pillar 6: Git Webhook Emblem Subtle Detent */
+.pillar-git .pillar-git-icon {
+  transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.pillar-git:hover .pillar-git-icon {
+  transform: scale(1.08) rotate(-3deg);
 }
 
 /* ========================================================================= */
-/* LANDING PAGE COALESCING HEADER                                            */
-/* ========================================================================= */
-#landingHeaderWrapper {
-  transition: padding 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-#landingHeader {
-  transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: max-width, border-radius, padding, box-shadow;
-}
-
-#landingHeaderWrapper.scrolled {
-  padding-top: 0.75rem !important;
-  padding-bottom: 0.25rem !important;
-}
-
-#landingHeaderWrapper.scrolled #landingHeader {
-  max-width: 960px !important;
-  border-radius: 9999px !important;
-  padding-top: 0.5rem !important;
-  padding-bottom: 0.5rem !important;
-  padding-left: 1.5rem !important;
-  padding-right: 1.5rem !important;
-  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.38) !important;
-  border-color: var(--border-strong) !important;
-}
-
-[data-theme="light"] #landingHeaderWrapper.scrolled #landingHeader {
-  box-shadow: 0 14px 30px -6px rgba(45, 35, 20, 0.14) !important;
-  background-color: rgba(255, 254, 248, 0.94) !important;
-}
-
-[data-theme="dark"] #landingHeaderWrapper.scrolled #landingHeader {
-  background-color: rgba(29, 26, 22, 0.94) !important;
-}
-
-/* ========================================================================= */
-/* DUAL GATE ARCHITECTURE DIAGRAM STYLES                                     */
+/* 6. DUAL GATE ARCHITECTURE DIAGRAM & SIGNAL FLOW                           */
 /* ========================================================================= */
 .arch-diagram-card {
   background-color: var(--bg-surface);
@@ -218,9 +570,477 @@ body {
 }
 
 .arch-node {
-  transition: all 0.2s ease;
+  transition: transform 0.22s ease, filter 0.22s ease;
 }
 
 .arch-node:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.06);
+  transform: translateY(-1.5px);
+}
+
+/* Subtle Active Pipeline Signal Flow */
+.arch-signal-flow {
+  stroke-dasharray: 6 5;
+  animation: arch-flow-dash 1.8s linear infinite;
+}
+
+@keyframes arch-flow-dash {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
+
+#archBlueprintView .arch-box {
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+[data-theme="dark"] #archBlueprintView {
+  background-color: #181b22 !important;
+  border-color: #334155 !important;
+}
+[data-theme="dark"] #archBlueprintView .arch-box {
+  fill: #21252f !important;
+  stroke: #3d4455 !important;
+}
+[data-theme="dark"] #archBlueprintView .arch-gate-1,
+[data-theme="dark"] #archBlueprintView .arch-gate-2 {
+  fill: #1a1e27 !important;
+}
+[data-theme="dark"] #archBlueprintView .arch-text-title {
+  fill: #f8fafc !important;
+}
+[data-theme="dark"] #archBlueprintView .arch-text-sub {
+  fill: #94a3b8 !important;
+}
+
+[data-theme="light"] #archBlueprintView {
+  background-color: #ffffff !important;
+  border-color: #ded7c4 !important;
+  box-shadow: 0 10px 30px rgba(40, 30, 20, 0.07) !important;
+}
+[data-theme="light"] #archBlueprintView .arch-box {
+  fill: #fbf9f5 !important;
+  stroke: #ded7c4 !important;
+}
+[data-theme="light"] #archBlueprintView .arch-gate-1 {
+  fill: #fffdf9 !important;
+  stroke: #d97706 !important;
+}
+[data-theme="light"] #archBlueprintView .arch-gate-2 {
+  fill: #f9fdfa !important;
+  stroke: #059669 !important;
+}
+[data-theme="light"] #archBlueprintView .arch-text-title {
+  fill: #111827 !important;
+}
+[data-theme="light"] #archBlueprintView .arch-text-sub {
+  fill: #4b5563 !important;
+}
+
+/* ========================================================================= */
+/* 7. BENCHMARK TABLE & CTA BLUEPRINT CROSSHAIRS                             */
+/* ========================================================================= */
+.benchmark-row {
+  position: relative;
+  cursor: pointer;
+}
+
+.benchmark-row td:first-child {
+  position: relative;
+}
+
+.benchmark-row td:first-child::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 2.5px;
+  border-radius: 0 2px 2px 0;
+  background-color: var(--accent-primary);
+  transform: scaleY(0);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.benchmark-row:hover td:first-child::before,
+.benchmark-row.bm-row-active td:first-child::before {
+  transform: scaleY(1);
+}
+
+.cta-blueprint-box {
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.cta-blueprint-box:hover {
+  border-color: var(--border-strong) !important;
+}
+
+.cta-crosshair {
+  position: absolute;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-faint);
+  opacity: 0.65;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), color 0.25s ease, opacity 0.25s ease;
+  user-select: none;
+}
+
+.cta-blueprint-box:hover .cta-crosshair {
+  color: var(--accent-primary);
+  opacity: 1;
+  transform: rotate(90deg);
+}
+
+/* ========================================================================= */
+/* 8. FIVE-STAGE COMPLIANCE LIFECYCLE GRAPHICAL STYLES                       */
+/* ========================================================================= */
+.interactive-step-btn {
+  transition: all 0.2s ease;
+}
+.interactive-step-btn.active-step {
+  border-color: var(--accent-primary) !important;
+  background-color: var(--accent-subtle) !important;
+}
+
+.lifecycle-step-btn {
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.lifecycle-step-btn:hover {
+  transform: translateY(-2px);
+}
+
+.lifecycle-step-btn.active-step {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 20px -3px rgba(245, 158, 11, 0.28);
+}
+
+[data-theme="light"] .lifecycle-step-btn.active-step {
+  border-color: #b45309 !important;
+  background-color: rgba(180, 83, 9, 0.08) !important;
+  box-shadow: 0 4px 16px -2px rgba(180, 83, 9, 0.18);
+}
+
+.active-pulse-ring {
+  animation: pulse-ring 2.4s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(0.95); opacity: 0.75; }
+  50%  { transform: scale(1.14); opacity: 0.2; }
+  100% { transform: scale(0.95); opacity: 0.75; }
+}
+
+@keyframes radar-sweep {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-radar-sweep {
+  transform-origin: center center;
+  animation: radar-sweep 4.5s linear infinite;
+}
+
+@keyframes beam-flow {
+  0%   { stroke-dashoffset: 24; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.animate-beam-flow {
+  stroke-dasharray: 6 6;
+  animation: beam-flow 1.2s linear infinite;
+}
+
+.stage-fade-enter {
+  animation: stageFadeIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes stageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Subtle utility animations */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.65; }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ========================================================================= */
+/* 9. AMBIENT FUSION MESH & MOVING BLURS (DARK & LIGHT MODES)                */
+/* ========================================================================= */
+.ambient-blur-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.ambient-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(85px);
+  will-change: transform, opacity;
+  transform-origin: center center;
+}
+
+[data-theme="dark"] .ambient-orb {
+  opacity: 0.18;
+}
+
+[data-theme="dark"] .ambient-orb-1 {
+  width: 520px;
+  height: 520px;
+  top: -120px;
+  left: 15%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.45) 0%, rgba(217, 119, 6, 0.15) 50%, transparent 75%);
+  animation: orb-drift-1 22s ease-in-out infinite;
+}
+
+[data-theme="dark"] .ambient-orb-2 {
+  width: 480px;
+  height: 480px;
+  top: 38%;
+  right: 10%;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.35) 0%, rgba(59, 130, 246, 0.12) 55%, transparent 75%);
+  animation: orb-drift-2 26s ease-in-out infinite;
+}
+
+[data-theme="dark"] .ambient-orb-3 {
+  width: 440px;
+  height: 440px;
+  bottom: 8%;
+  left: 25%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, rgba(245, 158, 11, 0.1) 60%, transparent 75%);
+  animation: orb-drift-3 24s ease-in-out infinite;
+}
+
+[data-theme="light"] .ambient-orb {
+  opacity: 0.13;
+  filter: blur(95px);
+}
+
+[data-theme="light"] .ambient-orb-1 {
+  width: 560px;
+  height: 560px;
+  top: -140px;
+  left: 10%;
+  background: radial-gradient(circle, rgba(217, 119, 6, 0.45) 0%, rgba(245, 158, 11, 0.18) 50%, transparent 75%);
+  animation: orb-drift-1 22s ease-in-out infinite;
+}
+
+[data-theme="light"] .ambient-orb-2 {
+  width: 500px;
+  height: 500px;
+  top: 36%;
+  right: 8%;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.35) 0%, rgba(99, 102, 241, 0.14) 55%, transparent 75%);
+  animation: orb-drift-2 26s ease-in-out infinite;
+}
+
+[data-theme="light"] .ambient-orb-3 {
+  width: 460px;
+  height: 460px;
+  bottom: 10%;
+  left: 18%;
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.28) 0%, rgba(217, 119, 6, 0.12) 60%, transparent 75%);
+  animation: orb-drift-3 24s ease-in-out infinite;
+}
+
+@keyframes orb-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(45px, -30px) scale(1.08); }
+  66%      { transform: translate(-35px, 25px) scale(0.94); }
+}
+
+@keyframes orb-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(-40px, 35px) scale(0.96); }
+  66%      { transform: translate(30px, -25px) scale(1.07); }
+}
+
+@keyframes orb-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(35px, 20px) scale(1.05); }
+  66%      { transform: translate(-25px, -35px) scale(0.95); }
+}
+
+/* ========================================================================= */
+/* 10. TEXT FUSION EFFECT (OPTICAL SHIMMER & BACKDROP BLEND)                 */
+/* ========================================================================= */
+.text-fusion {
+  background: linear-gradient(
+    135deg,
+    #f59e0b 0%,
+    #fbbf24 20%,
+    #ffffff 40%,
+    #f59e0b 60%,
+    #d97706 80%,
+    #fbbf24 100%
+  );
+  background-size: 250% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-fusion-shimmer 7s ease-in-out infinite alternate;
+  display: inline-block;
+  filter: drop-shadow(0 2px 14px rgba(245, 158, 11, 0.22));
+}
+
+[data-theme="light"] .text-fusion {
+  background: linear-gradient(
+    135deg,
+    #b45309 0%,
+    #d97706 25%,
+    #1e293b 50%,
+    #b45309 75%,
+    #92400e 100%
+  );
+  background-size: 250% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 10px rgba(180, 83, 9, 0.15));
+}
+
+@keyframes text-fusion-shimmer {
+  0% {
+    background-position: 0% 50%;
+    filter: drop-shadow(0 2px 12px rgba(245, 158, 11, 0.18));
+  }
+  50% {
+    background-position: 100% 50%;
+    filter: drop-shadow(0 2px 22px rgba(245, 158, 11, 0.35));
+  }
+  100% {
+    background-position: 0% 50%;
+    filter: drop-shadow(0 2px 12px rgba(245, 158, 11, 0.18));
+  }
+}
+
+.text-fusion-subtle {
+  background: linear-gradient(
+    120deg,
+    var(--text-main) 0%,
+    var(--accent-primary) 50%,
+    var(--text-main) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-fusion-shimmer 9s ease-in-out infinite alternate;
+}
+
+/* ========================================================================= */
+/* 11. BEAUTIFUL BLURRED LOADING OVERLAY (STUDIO CONSOLE & GRAPH)           */
+/* ========================================================================= */
+.blurred-loader-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  background: rgba(11, 15, 25, 0.94) !important;
+  z-index: 30;
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.45s ease;
+}
+
+[data-theme="light"] .blurred-loader-overlay {
+  background: rgba(246, 244, 238, 0.95) !important;
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+}
+
+#cy {
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), filter 0.45s ease;
+}
+
+#cy.graph-stabilizing {
+  opacity: 0 !important;
+  filter: blur(16px) !important;
+  pointer-events: none !important;
+}
+
+#cy.graph-revealed {
+  opacity: 1 !important;
+  filter: none !important;
+  pointer-events: auto !important;
+}
+
+@keyframes loader-bar-pulse {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-loader-bar {
+  animation: loader-bar-pulse 1.8s ease-in-out infinite;
+}
+
+/* ========================================================================= */
+/* 12. ORGANIC CUSTOM WORKSPACE DROPDOWN WITH SEARCH                        */
+/* ========================================================================= */
+.workspace-organic-trigger {
+  background-color: var(--bg-surface);
+  border-color: var(--border-subtle);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.workspace-organic-trigger:hover,
+.workspace-organic-trigger.is-open {
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.2);
+}
+
+.workspace-organic-menu {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-strong) !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--border-subtle);
+  animation: dropdown-pop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes dropdown-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.workspace-dropdown-item {
+  transition: all 0.16s ease;
+  border-radius: 0.625rem;
+}
+
+.workspace-dropdown-item:hover {
+  background-color: var(--bg-hover) !important;
+}
+
+.workspace-dropdown-item.is-selected {
+  background-color: var(--accent-subtle) !important;
+  border: 1px solid var(--accent-border) !important;
+}
+
+[data-theme="light"] .workspace-organic-menu {
+  box-shadow: 0 16px 36px -6px rgba(45, 35, 20, 0.14), 0 0 0 1px rgba(214, 211, 209, 0.8) !important;
 }

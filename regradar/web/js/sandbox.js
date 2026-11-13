@@ -4,7 +4,9 @@ window.SandboxModule = (function () {
   async function load() {
     if (!AppState.currentWorkspace) {
       renderEmptyState();
+      return;
     }
+    await runSimulation();
   }
 
   function renderEmptyState() {

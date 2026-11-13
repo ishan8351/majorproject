@@ -47,6 +47,13 @@ window.BenchmarkModule = (function () {
       return;
     }
 
+    if (window.isModelConfigured && !window.isModelConfigured()) {
+      showToast("Please configure an AI model API key in Settings first.", "warning");
+      const modal = document.getElementById("settingsModal");
+      if (modal) modal.classList.remove("hidden");
+      return;
+    }
+
     const btn = document.getElementById("runBenchmarkBtn");
     if (btn) {
       btn.disabled = true;
@@ -77,8 +84,8 @@ window.BenchmarkModule = (function () {
     const unc = data.unconstrained_metrics;
 
     const s = window.AppState && window.AppState.settings;
-    const m = (s && s.current_model) || "Frontier Model";
-    const modelName = (window.getModelDisplayName && s) ? window.getModelDisplayName(s.current_provider, m) : m;
+    const m = (s && s.current_model) || "gemini-4-argon";
+    const modelName = (window.getModelDisplayName && s) ? window.getModelDisplayName(s.current_provider, m) : "Gemini 4 Argon";
 
     const unconstrainedH = document.getElementById("bmUnconstrainedHeader");
     const regradarH = document.getElementById("bmRegRadarHeader");

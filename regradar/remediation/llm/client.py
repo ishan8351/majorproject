@@ -107,6 +107,7 @@ class MockLLMClient(BaseLLMClient):
         responses: Optional[List[str]] = None,
         pattern_responses: Optional[Dict[str, str]] = None,
         structured_responses: Optional[List[Any]] = None,
+        **kwargs: Any,
     ):
         self.responses: List[str] = list(responses) if responses else []
         self.pattern_responses: Dict[str, str] = dict(pattern_responses) if pattern_responses else {}
@@ -491,21 +492,23 @@ class MockLLMClient(BaseLLMClient):
 class OpenAIClient(BaseLLMClient):
     """
     OpenAI API client using standard urllib/HTTP requests.
-    Supports gpt-6-sol, gpt-6-astra, gpt-6.1-terra, gpt-6-luna, o3-mini, o1, gpt-4o.
+    Supports gpt-6-astra, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-oss-120b, gpt-oss-20b, o3-mini, o1, and gpt-4o.
     """
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
+        model_name: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: Optional[float] = None,
+        **kwargs: Any,
     ):
         from regradar.config import get_config
         cfg = get_config().llm.openai
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "") or (cfg.api_key or "")
-        self.model = model or os.environ.get("OPENAI_MODEL", cfg.model)
-        raw_url = base_url or os.environ.get("OPENAI_BASE_URL", cfg.base_url)
+        self.model = model or model_name or os.environ.get("OPENAI_MODEL", cfg.model) or "gpt-6-astra"
+        raw_url = base_url or os.environ.get("OPENAI_BASE_URL", cfg.base_url) or "https://api.openai.com/v1"
         self.base_url = raw_url.rstrip("/")
         self.timeout = timeout if timeout is not None else cfg.timeout
 
@@ -526,17 +529,16 @@ class OpenAIClient(BaseLLMClient):
             "Authorization": f"Bearer {self.api_key}",
         }
 
-        # Handle OpenAI reasoning and GPT-6 models (gpt-6-sol, gpt-6-astra, o1, o3-mini)
+        # Handle OpenAI reasoning models (gpt-6-astra, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, o1, o3, gpt-oss)
         is_reasoning_model = (
-            any(self.model.startswith(prefix) for prefix in ("o1", "o3", "gpt-6"))
+            any(self.model.startswith(prefix) for prefix in ("o1", "o3", "o5", "gpt-5", "gpt-6", "gpt-oss"))
             or "reasoning" in self.model.lower()
-            or "astra" in self.model.lower()
-            or "sol" in self.model.lower()
+            or "reasoner" in self.model.lower()
         )
 
         messages: List[Dict[str, str]] = []
         if system_prompt:
-            # Reasoning / GPT-6 models use developer role instead of system
+            # Reasoning models use developer role instead of system
             role = "developer" if is_reasoning_model else "system"
             messages.append({"role": role, "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
@@ -579,22 +581,24 @@ class OpenAIClient(BaseLLMClient):
 class AnthropicClient(BaseLLMClient):
     """
     Anthropic Messages API integration.
-    Supports claude-sonnet-5-5, claude-opus-5-5, claude-fable-5-2, claude-haiku-5-5, claude-3-7-sonnet.
+    Supports claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5, claude-haiku-5-5, claude-3-7-sonnet-20250219.
     """
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
+        model_name: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: Optional[float] = None,
         version: Optional[str] = None,
+        **kwargs: Any,
     ):
         from regradar.config import get_config
         cfg = get_config().llm.anthropic
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "") or (cfg.api_key or "")
-        self.model = model or os.environ.get("ANTHROPIC_MODEL", cfg.model)
-        raw_url = base_url or os.environ.get("ANTHROPIC_BASE_URL", cfg.base_url)
+        self.model = model or model_name or os.environ.get("ANTHROPIC_MODEL", cfg.model) or "claude-sonnet-5-5"
+        raw_url = base_url or os.environ.get("ANTHROPIC_BASE_URL", cfg.base_url) or "https://api.anthropic.com/v1"
         self.base_url = raw_url.rstrip("/")
         self.timeout = timeout if timeout is not None else cfg.timeout
         self.version = version or cfg.version
@@ -622,9 +626,11 @@ class AnthropicClient(BaseLLMClient):
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": max_tokens or 1024,
         }
-        # Support Claude 5.5 / 3.7 adaptive/hybrid extended thinking mode
+        # Support Claude Fable 5.2 (adaptive thinking always on) and Sonnet/Opus 5.5 extended thinking
         if "thinking" in kwargs:
             payload["thinking"] = kwargs.pop("thinking")
+        elif "fable" in self.model.lower() or "5-2" in self.model.lower():
+            payload["thinking"] = {"type": "adaptive"}
         else:
             payload["temperature"] = temperature
 
@@ -658,21 +664,26 @@ class AnthropicClient(BaseLLMClient):
 class GeminiClient(BaseLLMClient):
     """
     Google Gemini API client using standard urllib/HTTP requests.
-    Supports gemini-4-argon, gemini-3.8-flash, gemini-4-carbon, gemini-2.0-flash.
+    Supports gemini-4-argon, gemini-4-carbon, gemini-4-hydrogen, gemini-3.8-flash, gemini-3.5-flash-lite, gemini-2.5-pro, gemini-2.5-flash.
     """
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
+        model_name: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: Optional[float] = None,
+        **kwargs: Any,
     ):
         from regradar.config import get_config
         cfg = get_config().llm.gemini
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "") or (cfg.api_key or "")
-        self.model = model or os.environ.get("GEMINI_MODEL", cfg.model)
-        raw_url = base_url or os.environ.get("GEMINI_BASE_URL", cfg.base_url)
+        raw_model = model or model_name or os.environ.get("GEMINI_MODEL", cfg.model) or "gemini-4-argon"
+        if raw_model.startswith("models/"):
+            raw_model = raw_model.split("models/", 1)[1]
+        self.model = raw_model
+        raw_url = base_url or os.environ.get("GEMINI_BASE_URL", cfg.base_url) or "https://generativelanguage.googleapis.com/v1beta"
         self.base_url = raw_url.rstrip("/")
         self.timeout = timeout if timeout is not None else cfg.timeout
 
@@ -699,11 +710,16 @@ class GeminiClient(BaseLLMClient):
         if max_tokens:
             generation_config["maxOutputTokens"] = max_tokens
 
-        # Support Gemini 4 thinking levels (low, medium, high) or budget
+        # Support Gemini 4 thinking levels (LOW, MEDIUM, HIGH) and legacy budgets
+        is_gemini_4 = "gemini-4" in self.model.lower()
         if "thinking_level" in kwargs:
             generation_config["thinkingConfig"] = {"thinkingLevel": kwargs.pop("thinking_level")}
         elif "thinking_budget" in kwargs:
-            generation_config["thinkingConfig"] = {"thinkingBudget": kwargs.pop("thinking_budget")}
+            budget = kwargs.pop("thinking_budget")
+            if is_gemini_4:
+                generation_config["thinkingConfig"] = {"thinkingLevel": "MEDIUM"}
+            else:
+                generation_config["thinkingConfig"] = {"thinkingBudget": budget}
 
         payload: Dict[str, Any] = {
             "contents": [
@@ -730,7 +746,20 @@ class GeminiClient(BaseLLMClient):
                 if candidates:
                     parts = candidates[0].get("content", {}).get("parts", [])
                     if parts:
-                        return parts[0].get("text", "")
+                        # Extract and concatenate clean content parts (excluding internal reasoning thoughts)
+                        text_parts = [
+                            p.get("text", "")
+                            for p in parts
+                            if isinstance(p, dict) and not p.get("thought", False) and p.get("text")
+                        ]
+                        if text_parts:
+                            return "".join(text_parts)
+                        # Fallback if only thought parts or untagged parts exist
+                        for p in parts:
+                            if isinstance(p, dict) and p.get("text"):
+                                return p.get("text", "")
+                        if isinstance(parts[0], dict):
+                            return parts[0].get("text", "")
                 return ""
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="replace")
@@ -744,21 +773,23 @@ class GeminiClient(BaseLLMClient):
 class DeepSeekClient(BaseLLMClient):
     """
     DeepSeek API client (OpenAI compatible, api.deepseek.com).
-    Supports deepseek-v4-pro, deepseek-flash, deepseek-chat, deepseek-reasoner.
+    Supports deepseek-v4-pro, deepseek-flash, deepseek-reasoner, deepseek-chat.
     """
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
+        model_name: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout: Optional[float] = None,
+        **kwargs: Any,
     ):
         from regradar.config import get_config
         cfg = get_config().llm.deepseek
         self.api_key = api_key or os.environ.get("DEEPSEEK_API_KEY", "") or (cfg.api_key or "")
-        self.model = model or os.environ.get("DEEPSEEK_MODEL", cfg.model)
-        raw_url = base_url or os.environ.get("DEEPSEEK_BASE_URL", cfg.base_url)
+        self.model = model or model_name or os.environ.get("DEEPSEEK_MODEL", cfg.model) or "deepseek-v4-pro"
+        raw_url = base_url or os.environ.get("DEEPSEEK_BASE_URL", cfg.base_url) or "https://api.deepseek.com"
         self.base_url = raw_url.rstrip("/")
         self.timeout = timeout if timeout is not None else cfg.timeout
 
@@ -784,7 +815,11 @@ class DeepSeekClient(BaseLLMClient):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        is_reasoner = "reasoner" in self.model.lower() or "v4-pro" in self.model.lower()
+        is_reasoner = (
+            "reasoner" in self.model.lower()
+            or "r1" in self.model.lower()
+            or "v4-pro" in self.model.lower()
+        )
 
         payload: Dict[str, Any] = {
             "model": self.model,
@@ -827,20 +862,22 @@ class DeepSeekClient(BaseLLMClient):
 class OllamaClient(BaseLLMClient):
     """
     Local LLM integration via Ollama (/api/chat endpoint or OpenAI-compatible endpoint).
-    Supports llama3.3, qwen2.5-coder:32b, deepseek-r1:8b, mistral, etc.
+    Supports qwen3-coder, qwen3.8, gpt-oss:20b, gpt-oss:120b, nemotron-3.5-lightning, gemma4, llama3.3.
     """
 
     def __init__(
         self,
         base_url: Optional[str] = None,
         model: Optional[str] = None,
+        model_name: Optional[str] = None,
         timeout: Optional[float] = None,
+        **kwargs: Any,
     ):
         from regradar.config import get_config
         cfg = get_config().llm.ollama
-        raw_url = base_url or os.environ.get("OLLAMA_BASE_URL", cfg.base_url)
+        raw_url = base_url or os.environ.get("OLLAMA_BASE_URL", cfg.base_url) or "http://localhost:11434"
         self.base_url = raw_url.rstrip("/")
-        self.model = model or os.environ.get("OLLAMA_MODEL", cfg.model)
+        self.model = model or model_name or os.environ.get("OLLAMA_MODEL", cfg.model) or "qwen3-coder"
         self.timeout = timeout if timeout is not None else cfg.timeout
 
     def generate(

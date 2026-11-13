@@ -16,6 +16,13 @@ def test_server_serves_index_html(client: TestClient):
     assert res.status_code == 200
     assert "text/html" in res.headers.get("content-type", "")
     assert "RegRadar" in res.text
+
+
+def test_server_serves_dashboard_html(client: TestClient):
+    res = client.get("/dashboard")
+    assert res.status_code == 200
+    assert "text/html" in res.headers.get("content-type", "")
+    assert "RegRadar" in res.text
     assert "Topology & Blast DAG" in res.text
 
 
@@ -58,21 +65,31 @@ def test_index_html_zero_emojis_and_two_themes(client: TestClient):
     assert 'data-theme-val="obsidian"' not in html
     assert 'data-theme-val="polar"' not in html
 
-    # Verify Landing Page & Dashboard views exist
+    # Verify Landing Page exists on index.html and Dashboard shifted to another page
     assert 'id="landingView"' in html
-    assert 'id="dashboardView"' in html
+    assert 'id="dashboardView"' not in html
+
+    # Verify Dashboard view exists on /dashboard
+    dash_res = client.get("/dashboard")
+    assert dash_res.status_code == 200
+    dash_html = dash_res.text
+    assert 'id="dashboardView"' in dash_html
+    assert 'data-theme-val="dark"' in dash_html
+    assert 'data-theme-val="light"' in dash_html
 
     # Verify deterministic solver removed from frontend
     assert 'Deterministic Mock' not in html
     assert 'Deterministic Rule Solver' not in html
+    assert 'Deterministic Mock' not in dash_html
+    assert 'Deterministic Rule Solver' not in dash_html
 
-    # Verify diagram search and controls exist
-    assert 'id="topoNodeSearch"' in html
-    assert 'focusActiveNode()' in html
+    # Verify diagram search and controls exist on dashboard
+    assert 'id="topoNodeSearch"' in dash_html
+    assert 'focusActiveNode()' in dash_html
 
-    # Verify GitHub nav tab and view exist
-    assert 'data-tab="github"' in html
-    assert 'id="view-github"' in html
+    # Verify GitHub nav tab and view exist on dashboard
+    assert 'data-tab="github"' in dash_html
+    assert 'id="view-github"' in dash_html
 
     # Verify zero emojis in index.html
     import re

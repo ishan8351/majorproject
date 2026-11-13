@@ -121,3 +121,57 @@ class SettingsUpdateModel(BaseModel):
     gemini_key: Optional[str] = None
     deepseek_key: Optional[str] = None
     ollama_url: Optional[str] = None
+
+
+class QueryBranchesRequest(BaseModel):
+    provider: str = Field(default="github")
+    repo_name: str = Field(..., description="e.g. 'org/repo' or clone url")
+    auth_token: Optional[str] = None
+    clone_url: Optional[str] = None
+
+
+class QueryBranchesResponse(BaseModel):
+    provider: str
+    repo_name: str
+    canonical_url: str
+    default_branch: str
+    branches: List[str] = Field(default_factory=list)
+    latest_sha: Optional[str] = None
+    message: str = ""
+
+
+class GitCommitInfo(BaseModel):
+    sha: str
+    full_sha: str
+    message: str
+    author: str
+    date: str
+
+
+class RepoMetadataResponse(BaseModel):
+    id: str
+    provider: str
+    repo_name: str
+    current_branch: str
+    available_branches: List[str] = Field(default_factory=list)
+    resource_count: int
+    tf_files_count: int
+    framework: str
+    clone_url: str
+    created_at: Optional[str] = None
+    latest_commit: Optional[GitCommitInfo] = None
+    recent_commits: List[GitCommitInfo] = Field(default_factory=list)
+    working_tree_clean: bool = True
+
+
+class SwitchBranchRequest(BaseModel):
+    branch: str
+
+
+class SyncRepoResponse(BaseModel):
+    success: bool
+    workspace: WorkspaceItem
+    commits_pulled: int
+    new_commits: List[GitCommitInfo] = Field(default_factory=list)
+    diff_summary: str = ""
+    message: str

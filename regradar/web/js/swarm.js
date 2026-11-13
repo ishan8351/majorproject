@@ -77,6 +77,14 @@ window.SwarmModule = (function () {
       return;
     }
 
+    if (window.isModelConfigured && !window.isModelConfigured()) {
+      appendLog("SYSTEM", "Execution halted: No AI model configured. Please click Model Settings in the top header and configure an active API key.");
+      showToast("Please configure an AI model API key in Settings first.", "warning");
+      const settingsModal = document.getElementById("settingsModal");
+      if (settingsModal) settingsModal.classList.remove("hidden");
+      return;
+    }
+
     if (btn) {
       btn.disabled = true;
       btn.innerHTML = `<span class="inline-flex items-center gap-1.5">${window.RegIcons.svg('spinner', 'w-3.5 h-3.5')} Orchestrating Swarm...</span>`;
@@ -87,10 +95,11 @@ window.SwarmModule = (function () {
     resetAllAgents();
 
     try {
-      const s = window.AppState && window.AppState.settings;
-      const activeProvider = (s && s.current_provider) ? s.current_provider.toUpperCase() : "GEMINI";
-      const activeModel = (s && s.current_model) || "gemini-4-argon";
-      const modelDisplayName = (window.getModelDisplayName) ? window.getModelDisplayName(s.current_provider, activeModel) : activeModel;
+      const s = (window.AppState && window.AppState.settings) || {};
+      const curProv = s.current_provider || "gemini";
+      const activeProvider = curProv.toUpperCase();
+      const activeModel = s.current_model || "gemini-4-argon";
+      const modelDisplayName = (window.getModelDisplayName) ? window.getModelDisplayName(curProv, activeModel) : activeModel;
 
       appendLog("SYSTEM", `Initializing multi-agent neuro-symbolic remediation swarm [AI Engine: ${modelDisplayName} (${activeProvider})] on target workspace: ${targetPath}...`);
       setAgentState("auditor", "ANALYZING", "active");

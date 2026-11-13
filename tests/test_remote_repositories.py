@@ -121,8 +121,8 @@ resource "aws_sqs_queue" "q" {
     subprocess.run(["git", "commit", "-m", "Add SQS queue"], cwd=git_repo_fixture, check=True)
 
     synced = sync_remote_workspace(gh_item.id)
-    assert synced.resource_count == 3
-    assert "3 resources" in synced.framework
+    assert synced.workspace.resource_count == 3
+    assert "3 resources" in synced.workspace.framework
 
     # 7. Disconnect repository
     res = disconnect_workspace(gh_item.id)

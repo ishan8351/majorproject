@@ -186,16 +186,49 @@ window.TopologyModule = (function () {
     updateSummaryMetrics({ metrics: {} });
   }
 
+  let graphLoadStartTime = 0;
+
   function showLoading(show) {
     const loader = document.getElementById("topologyLoader");
-    if (loader) {
-      loader.classList.toggle("hidden", !show);
+    const cyElement = document.getElementById("cy");
+    if (!loader) return;
+    if (show) {
+      graphLoadStartTime = Date.now();
+      loader.style.opacity = "1";
+      loader.classList.remove("hidden");
+      if (cyElement) {
+        cyElement.classList.add("graph-stabilizing");
+        cyElement.classList.remove("graph-revealed");
+      }
+    } else {
+      const elapsed = Date.now() - graphLoadStartTime;
+      const minDuration = 1000; // 1-second beautiful blurred loading screen before revealing graph
+      const remaining = Math.max(0, minDuration - elapsed);
+      setTimeout(() => {
+        if (cy) {
+          cy.resize();
+          cy.fit(undefined, 50);
+        }
+        if (cyElement) {
+          cyElement.classList.remove("graph-stabilizing");
+          cyElement.classList.add("graph-revealed");
+        }
+        loader.style.opacity = "0";
+        setTimeout(() => {
+          loader.classList.add("hidden");
+        }, 400);
+      }, remaining);
     }
   }
 
   function renderGraph(graphData) {
     const cyElement = document.getElementById("cy");
     if (!cyElement) return;
+
+    if (cyElement) {
+      cyElement.classList.add("graph-stabilizing");
+      cyElement.classList.remove("graph-revealed");
+    }
 
     if (typeof cytoscape === "undefined") {
       renderSvgFallback(cyElement, graphData);
@@ -251,8 +284,7 @@ window.TopologyModule = (function () {
         edgeSep: 35,
         rankDir: currentOrientation,
         spacingFactor: 1.6,
-        animate: true,
-        animationDuration: 350
+        animate: false // Eliminates the flying-in animation completely
       }
     });
 

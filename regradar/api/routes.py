@@ -16,9 +16,13 @@ logger = logging.getLogger(__name__)
 from regradar.api.models import (
     AuditRequest,
     BenchmarkRunRequest,
+    GitCommitInfo,
     HealthResponse,
     KnowledgeQueryRequest,
+    QueryBranchesRequest,
+    QueryBranchesResponse,
     RemediationRequest,
+    RepoMetadataResponse,
     ReviewDecisionRequest,
     ReviewDecisionResponse,
     ReviewStagedItem,
@@ -28,6 +32,8 @@ from regradar.api.models import (
     ScanRequest,
     SettingsModel,
     SettingsUpdateModel,
+    SwitchBranchRequest,
+    SyncRepoResponse,
     WorkspaceItem,
 )
 from regradar.benchmark.evaluator import BenchmarkEvaluator
@@ -214,6 +220,96 @@ def list_workspaces() -> List[WorkspaceItem]:
     return items
 
 
+@api_router.post("/workspaces/branches", response_model=QueryBranchesResponse)
+def query_remote_branches(req: QueryBranchesRequest) -> QueryBranchesResponse:
+    """
+    Dynamically probes remote Git repository to discover available real branches
+    and the default branch before the user connects it.
+    """
+    if not shutil.which("git"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Git executable not found on server host.",
+        )
+
+    provider, clean_repo, canonical_url = _normalize_repo_input(req.provider, req.repo_name, req.clone_url)
+
+    # Build authenticated URL if token provided
+    auth_token = req.auth_token.strip() if req.auth_token else None
+    if Path(canonical_url).exists():
+        target_url = canonical_url
+    elif auth_token:
+        if provider == "gitlab":
+            target_url = f"https://oauth2:{auth_token}@gitlab.com/{clean_repo}.git"
+        else:
+            target_url = f"https://x-access-token:{auth_token}@github.com/{clean_repo}.git"
+    else:
+        target_url = canonical_url
+
+    branches: List[str] = []
+    default_branch = "main"
+    latest_sha: Optional[str] = None
+
+    try:
+        proc = subprocess.run(
+            ["git", "ls-remote", "--heads", target_url],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            for line in proc.stdout.strip().splitlines():
+                parts = line.strip().split()
+                if len(parts) >= 2:
+                    sha, ref = parts[0], parts[1]
+                    if ref.startswith("refs/heads/"):
+                        b_name = ref.replace("refs/heads/", "").strip()
+                        if b_name and b_name not in ("origin", "HEAD") and not b_name.startswith("origin/"):
+                            branches.append(b_name)
+                            if not latest_sha:
+                                latest_sha = sha[:8]
+                            if b_name.lower() in ("main", "master") and default_branch == "main":
+                                default_branch = b_name
+                                latest_sha = sha[:8]
+        if not branches:
+            branches = ["main", "master"]
+        if default_branch not in branches:
+            default_branch = branches[0]
+
+        msg = f"Discovered {len(branches)} remote branch{'es' if len(branches) != 1 else ''}."
+        return QueryBranchesResponse(
+            provider=provider,
+            repo_name=clean_repo,
+            canonical_url=canonical_url,
+            default_branch=default_branch,
+            branches=branches,
+            latest_sha=latest_sha,
+            message=msg,
+        )
+    except subprocess.TimeoutExpired:
+        logger.warning("git ls-remote timed out for %s, falling back to main/master", canonical_url)
+        return QueryBranchesResponse(
+            provider=provider,
+            repo_name=clean_repo,
+            canonical_url=canonical_url,
+            default_branch="main",
+            branches=["main", "master"],
+            latest_sha=None,
+            message="Remote probe timed out. Fallback branches populated.",
+        )
+    except Exception as e:
+        logger.warning("git ls-remote failed for %s: %s", canonical_url, e)
+        return QueryBranchesResponse(
+            provider=provider,
+            repo_name=clean_repo,
+            canonical_url=canonical_url,
+            default_branch="main",
+            branches=["main", "master"],
+            latest_sha=None,
+            message=f"Could not reach remote heads ({e}). Fallback branches populated.",
+        )
+
+
 @api_router.post("/workspaces/connect", response_model=WorkspaceItem)
 def connect_remote_workspace(req: ConnectRepoRequest) -> WorkspaceItem:
     """Explicitly connects, clones, and verifies a remote GitHub or GitLab repository."""
@@ -300,23 +396,257 @@ def connect_remote_workspace(req: ConnectRepoRequest) -> WorkspaceItem:
     )
 
 
-@api_router.post("/workspaces/{repo_id:path}/sync", response_model=WorkspaceItem)
-def sync_remote_workspace(repo_id: str) -> WorkspaceItem:
-    """Pulls latest commits from the remote repository and updates topological metrics."""
+def _resolve_repo_dir(repo: Dict[str, Any]) -> Path:
+    cache_root = get_workspace_root() / ".regradar_repos"
+    candidates = [
+        cache_root / repo["id"],
+        cache_root / repo["id"].replace(":", "-"),
+        cache_root / f"{repo['provider']}:{repo['repo_name']}".lower().replace("/", "-"),
+        cache_root / f"{repo['provider']}-{repo['repo_name']}".lower().replace("/", "-"),
+        cache_root / repo["repo_name"].lower().replace("/", "-"),
+    ]
+    for c in candidates:
+        if c.exists() and (c / ".git").is_dir():
+            return c
+    return candidates[0]
+
+
+@api_router.get("/workspaces/{repo_id:path}/metadata", response_model=RepoMetadataResponse)
+def get_workspace_metadata(repo_id: str) -> RepoMetadataResponse:
+    """Returns rich metadata for a connected repository including branch, commits, and AST file counts."""
     db = get_governance_db()
     repo = db.get_repository(repo_id)
     if not repo:
         raise HTTPException(status_code=404, detail=f"Repository '{repo_id}' not found.")
 
-    cache_root = get_workspace_root() / ".regradar_repos"
-    repo_dir = cache_root / repo["id"]
+    repo_dir = _resolve_repo_dir(repo)
+    if not repo_dir.exists() or not (repo_dir / ".git").is_dir():
+        raise HTTPException(status_code=404, detail="Working repository directory not found on host.")
+
+    # 1. Current branch
+    b_proc = subprocess.run(["git", "-C", str(repo_dir), "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True)
+    current_branch = b_proc.stdout.strip() if b_proc.returncode == 0 else repo.get("default_branch", "main")
+
+    # 2. Available branches
+    ref_proc = subprocess.run(
+        ["git", "-C", str(repo_dir), "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes"],
+        capture_output=True,
+        text=True,
+    )
+    branches: List[str] = []
+    if ref_proc.returncode == 0:
+        for ref in ref_proc.stdout.splitlines():
+            ref = ref.strip()
+            if not ref or ref.endswith("/HEAD") or "HEAD" in ref:
+                continue
+            if ref.startswith("refs/heads/"):
+                b_name = ref[len("refs/heads/"):]
+            elif ref.startswith("refs/remotes/origin/"):
+                b_name = ref[len("refs/remotes/origin/"):]
+            elif ref.startswith("refs/remotes/"):
+                parts = ref.split("/", 3)
+                b_name = parts[-1] if len(parts) >= 4 else ""
+            else:
+                b_name = ref
+            b_name = b_name.strip()
+            if (
+                b_name
+                and b_name not in ("origin", "HEAD")
+                and not b_name.startswith("(")
+                and not b_name.startswith("origin/")
+                and b_name not in branches
+            ):
+                branches.append(b_name)
+
+    if current_branch and current_branch not in ("origin", "HEAD") and not current_branch.startswith("(") and current_branch not in branches:
+        branches.insert(0, current_branch)
+
+    if not branches:
+        branches = [current_branch if current_branch not in ("origin", "HEAD", "") else "main"]
+
+    # 3. Recent commits (up to 10)
+    commits: List[GitCommitInfo] = []
+    log_proc = subprocess.run(
+        ["git", "-C", str(repo_dir), "log", "-n", "10", "--pretty=format:%h|%H|%an|%cr|%s"],
+        capture_output=True,
+        text=True,
+    )
+    if log_proc.returncode == 0 and log_proc.stdout.strip():
+        for line in log_proc.stdout.strip().splitlines():
+            parts = line.split("|", 4)
+            if len(parts) == 5:
+                commits.append(
+                    GitCommitInfo(
+                        sha=parts[0],
+                        full_sha=parts[1],
+                        author=parts[2],
+                        date=parts[3],
+                        message=parts[4],
+                    )
+                )
+
+    # 4. Status
+    st_proc = subprocess.run(["git", "-C", str(repo_dir), "status", "--porcelain"], capture_output=True, text=True)
+    working_clean = (st_proc.returncode == 0 and not st_proc.stdout.strip())
+
+    # 5. Terraform files & resources
+    tf_files = list(repo_dir.rglob("*.tf"))
+    tf_count = len(tf_files)
+    res_count = repo.get("resource_count", 0)
+
+    latest_commit = commits[0] if commits else None
+
+    return RepoMetadataResponse(
+        id=repo["id"],
+        provider=repo["provider"],
+        repo_name=repo["repo_name"],
+        current_branch=current_branch,
+        available_branches=branches,
+        resource_count=res_count,
+        tf_files_count=tf_count,
+        framework=repo.get("framework", "Terraform / OpenTofu"),
+        clone_url=repo.get("clone_url", ""),
+        created_at=repo.get("created_at"),
+        latest_commit=latest_commit,
+        recent_commits=commits,
+        working_tree_clean=working_clean,
+    )
+
+
+@api_router.post("/workspaces/{repo_id:path}/switch-branch", response_model=WorkspaceItem)
+def switch_workspace_branch(repo_id: str, req: SwitchBranchRequest) -> WorkspaceItem:
+    """Switches the checked out branch for the connected repository, re-parses HCL, and updates metrics."""
+    db = get_governance_db()
+    repo = db.get_repository(repo_id)
+    if not repo:
+        raise HTTPException(status_code=404, detail=f"Repository '{repo_id}' not found.")
+
+    repo_dir = _resolve_repo_dir(repo)
+    if not repo_dir.exists() or not (repo_dir / ".git").is_dir():
+        raise HTTPException(status_code=404, detail="Working repository directory not found on host.")
+
+    target_branch = req.branch.strip()
+    if not target_branch:
+        raise HTTPException(status_code=400, detail="Branch name cannot be empty.")
+
+    # 1. Fetch latest refs from remote
+    subprocess.run(["git", "-C", str(repo_dir), "fetch", "origin"], capture_output=True, text=True, timeout=30)
+
+    # 2. Checkout target branch
+    co_proc = subprocess.run(["git", "-C", str(repo_dir), "checkout", target_branch], capture_output=True, text=True, timeout=15)
+    if co_proc.returncode != 0:
+        co_proc2 = subprocess.run(["git", "-C", str(repo_dir), "checkout", "-B", target_branch, f"origin/{target_branch}"], capture_output=True, text=True, timeout=15)
+        if co_proc2.returncode != 0:
+            raise HTTPException(status_code=400, detail=f"Failed to switch to branch '{target_branch}': {co_proc.stderr.strip() or co_proc2.stderr.strip()}")
+
+    # 3. Re-parse directory
+    tf_files = list(repo_dir.rglob("*.tf"))
+    parser = HCLParser()
+    try:
+        resources = parser.parse_directory(repo_dir)
+        res_count = len(resources)
+    except Exception as e:
+        logger.warning("Failed to parse directory after branch switch %s: %s", repo_dir, e)
+        res_count = 0
+
+    framework = f"Terraform / OpenTofu ({len(tf_files)} files, {res_count} resources)" if tf_files else "No Terraform files detected"
+
+    saved = db.register_repository(
+        provider=repo["provider"],
+        repo_name=repo["repo_name"],
+        default_branch=target_branch,
+        clone_url=repo.get("clone_url", ""),
+        resource_count=res_count,
+        framework=framework,
+    )
+    provider_label = "GitHub" if repo["provider"].lower() == "github" else "GitLab"
+    return WorkspaceItem(
+        id=saved["id"],
+        name=f"{provider_label}: {saved['repo_name']}",
+        path=saved["repo_name"],
+        description=f"Remote {provider_label} repository ({saved['repo_name']} @ {target_branch})",
+        framework=framework,
+        resource_count=res_count,
+    )
+
+
+@api_router.post("/workspaces/{repo_id:path}/sync", response_model=SyncRepoResponse)
+def sync_remote_workspace(repo_id: str) -> SyncRepoResponse:
+    """Pulls latest commits from remote, records commit history, diff stats, and updates AST topology."""
+    db = get_governance_db()
+    repo = db.get_repository(repo_id)
+    if not repo:
+        raise HTTPException(status_code=404, detail=f"Repository '{repo_id}' not found.")
+
+    repo_dir = _resolve_repo_dir(repo)
     if not repo_dir.exists() or not (repo_dir / ".git").is_dir():
         raise HTTPException(status_code=400, detail="Repository working copy not found on server. Please reconnect.")
+
+    # Record HEAD before pull
+    head_pre = subprocess.run(["git", "-C", str(repo_dir), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
 
     proc = subprocess.run(["git", "-C", str(repo_dir), "pull"], capture_output=True, text=True, timeout=30)
     if proc.returncode != 0:
         raise HTTPException(status_code=400, detail=f"Git pull failed: {proc.stderr.strip()}")
 
+    head_post = subprocess.run(["git", "-C", str(repo_dir), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+
+    new_commits: List[GitCommitInfo] = []
+    diff_summary = ""
+    commits_pulled = 0
+
+    if head_pre and head_post and head_pre != head_post:
+        log_proc = subprocess.run(
+            ["git", "-C", str(repo_dir), "log", f"{head_pre}..{head_post}", "--pretty=format:%h|%H|%an|%cr|%s"],
+            capture_output=True,
+            text=True,
+        )
+        if log_proc.returncode == 0 and log_proc.stdout.strip():
+            for line in log_proc.stdout.strip().splitlines():
+                parts = line.split("|", 4)
+                if len(parts) == 5:
+                    new_commits.append(
+                        GitCommitInfo(
+                            sha=parts[0],
+                            full_sha=parts[1],
+                            author=parts[2],
+                            date=parts[3],
+                            message=parts[4],
+                        )
+                    )
+        commits_pulled = len(new_commits)
+
+        diff_proc = subprocess.run(
+            ["git", "-C", str(repo_dir), "diff", "--stat", head_pre, head_post],
+            capture_output=True,
+            text=True,
+        )
+        diff_summary = diff_proc.stdout.strip() if diff_proc.returncode == 0 else ""
+        msg = f"Successfully pulled {commits_pulled} new commit{'s' if commits_pulled != 1 else ''} from remote."
+    else:
+        log_proc = subprocess.run(
+            ["git", "-C", str(repo_dir), "log", "-n", "5", "--pretty=format:%h|%H|%an|%cr|%s"],
+            capture_output=True,
+            text=True,
+        )
+        if log_proc.returncode == 0 and log_proc.stdout.strip():
+            for line in log_proc.stdout.strip().splitlines():
+                parts = line.split("|", 4)
+                if len(parts) == 5:
+                    new_commits.append(
+                        GitCommitInfo(
+                            sha=parts[0],
+                            full_sha=parts[1],
+                            author=parts[2],
+                            date=parts[3],
+                            message=parts[4],
+                        )
+                    )
+        short_sha = head_post[:8] if head_post else "HEAD"
+        diff_summary = f"Working tree is clean. Synchronized at revision {short_sha}."
+        msg = f"Repository is already up to date ({short_sha})."
+
+    # Re-parse HCL
     tf_files = list(repo_dir.rglob("*.tf"))
     parser = HCLParser()
     try:
@@ -328,22 +658,34 @@ def sync_remote_workspace(repo_id: str) -> WorkspaceItem:
 
     framework = f"Terraform / OpenTofu ({len(tf_files)} files, {res_count} resources)" if tf_files else "No Terraform files detected"
 
+    b_proc = subprocess.run(["git", "-C", str(repo_dir), "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True)
+    cur_branch = b_proc.stdout.strip() if b_proc.returncode == 0 and b_proc.stdout.strip() else repo.get("default_branch", "main")
+
     saved = db.register_repository(
         provider=repo["provider"],
         repo_name=repo["repo_name"],
-        default_branch=repo.get("default_branch", "main"),
+        default_branch=cur_branch,
         clone_url=repo.get("clone_url", ""),
         resource_count=res_count,
         framework=framework,
     )
     provider_label = "GitHub" if repo["provider"].lower() == "github" else "GitLab"
-    return WorkspaceItem(
+    workspace_item = WorkspaceItem(
         id=saved["id"],
         name=f"{provider_label}: {saved['repo_name']}",
         path=saved["repo_name"],
-        description=f"Remote {provider_label} repository ({saved['repo_name']} @ {saved.get('default_branch', 'main')})",
+        description=f"Remote {provider_label} repository ({saved['repo_name']} @ {cur_branch})",
         framework=framework,
         resource_count=res_count,
+    )
+
+    return SyncRepoResponse(
+        success=True,
+        workspace=workspace_item,
+        commits_pulled=commits_pulled,
+        new_commits=new_commits,
+        diff_summary=diff_summary,
+        message=msg,
     )
 
 
@@ -677,134 +1019,215 @@ AVAILABLE_FRONTIER_MODELS: Dict[str, List[Dict[str, str]]] = {
         {
             "id": "gemini-4-argon",
             "name": "Gemini 4 Argon",
-            "tagline": "Frontier Cybersecurity & Enterprise Vulnerability Patching",
-            "context": "1M tokens (1M Output Decode)",
-            "tier": "Cyber & Patching Flagship",
-            "docs_url": "https://ai.google.dev/gemini-api/docs/models/gemini",
-            "capabilities": "Extended Thinking Levels (low, med, high), 1M Output Decodes, Strict JSON Schema",
-        },
-        {
-            "id": "gemini-3.8-flash",
-            "name": "Gemini 3.8 Flash",
-            "tagline": "Everyday Production Apps & Rapid Agentic Remediation",
+            "tagline": "Flagship Fast Frontier Reasoning for Autonomous Agentic Workflows & IaC Synthesis",
             "context": "1M tokens",
-            "tier": "Production Agentic",
+            "tier": "Frontier Reasoning Flagship",
             "docs_url": "https://ai.google.dev/gemini-api/docs/models/gemini",
-            "capabilities": "Sub-second Gating, Multimodal HCL Ingestion, Function Calling",
+            "capabilities": "1M Token Context, Configurable Thinking Levels (LOW/MEDIUM/HIGH), High Logic Accuracy & Synthesis",
         },
         {
             "id": "gemini-4-carbon",
             "name": "Gemini 4 Carbon",
-            "tagline": "Complex Multi-Step Reasoning & Scientific AST Verification",
-            "context": "2M tokens",
-            "tier": "Deep Reasoning",
+            "tagline": "Frontier Reasoning & Complex Software Engineering Flagship",
+            "context": "1M tokens",
+            "tier": "Heavy-Duty Reasoning",
             "docs_url": "https://ai.google.dev/gemini-api/docs/models/gemini",
-            "capabilities": "Long-Horizon State Verification, Deep Multi-Agent Loops",
+            "capabilities": "Deep Reasoning Chains, 1M Context, Cyber Defense & Complex Multi-Module Refactoring",
+        },
+        {
+            "id": "gemini-4-hydrogen",
+            "name": "Gemini 4 Hydrogen",
+            "tagline": "High-Velocity Frontier Engine for Rapid Agent Loops & Code Generation",
+            "context": "1M tokens",
+            "tier": "High-Velocity Frontier",
+            "docs_url": "https://ai.google.dev/gemini-api/docs/models/gemini",
+            "capabilities": "Sub-Second Latency, 1M Context, Rapid Remediation & Invariant Verification",
+        },
+        {
+            "id": "gemini-3.8-flash",
+            "name": "Gemini 3.8 Flash",
+            "tagline": "High-Performance Production Workhorse for Agent Swarms",
+            "context": "1M tokens (64k Output)",
+            "tier": "Production Workhorse",
+            "docs_url": "https://ai.google.dev/gemini-api/docs/models/gemini",
+            "capabilities": "Fast Inference, 64k Output Decodes, Configurable Thinking Features",
         },
         {
             "id": "gemini-3.5-flash-lite",
             "name": "Gemini 3.5 Flash-Lite",
-            "tagline": "High-Velocity CI/CD Policy Gating & Static AST Checks",
+            "tagline": "Ultra-Low Latency & High-Throughput CI/CD Invariant Gating",
             "context": "1M tokens",
-            "tier": "High-Velocity CI/CD",
+            "tier": "Economy High-Throughput",
             "docs_url": "https://ai.google.dev/gemini-api/docs/models/gemini",
-            "capabilities": "High-Volume Filtering, Low Cost Token Execution",
+            "capabilities": "Fastest Sub-Second Gating, Minimal Token Footprint",
+        },
+        {
+            "id": "gemini-2.5-pro",
+            "name": "Gemini 2.5 Pro",
+            "tagline": "Deep Reasoning & 2M Context Invariant Verification",
+            "context": "2M tokens",
+            "tier": "Deep Reasoning",
+            "docs_url": "https://ai.google.dev/gemini-api/docs/models/gemini",
+            "capabilities": "Extended Thinking Levels, 2M Token Context, Strict JSON Schema",
+        },
+        {
+            "id": "gemini-2.5-flash",
+            "name": "Gemini 2.5 Flash",
+            "tagline": "Balanced Multimodal & Fast Reasoning Engine",
+            "context": "1M tokens",
+            "tier": "Fast Production",
+            "docs_url": "https://ai.google.dev/gemini-api/docs/models/gemini",
+            "capabilities": "Adaptive Reasoning, Fast Token Generation",
         },
     ],
     "openai": [
         {
             "id": "gpt-6-astra",
             "name": "GPT-6 Astra",
-            "tagline": "Frontier Coding & Deep Constraint Reasoning Flagship",
-            "context": "1.05M tokens",
-            "tier": "Flagship Reasoning",
-            "docs_url": "https://platform.openai.com/docs/models/gpt-6",
-            "capabilities": "Advanced Math/Logic, DeepSWE v1.1 Benchmark SOTA, Computer Use",
+            "tagline": "Frontier Flagship for Agentic Workflows, Computer Use & Deep Cybersecurity",
+            "context": "1M tokens",
+            "tier": "Frontier Flagship",
+            "docs_url": "https://platform.openai.com/docs/models",
+            "capabilities": "1M Context Window, Multimodal Reasoning, Autonomous Coding & Cyber Research",
         },
         {
             "id": "gpt-6.1-sol",
             "name": "GPT-6.1 Sol",
-            "tagline": "Balanced Workhorse for Agentic Coding & Zero-Destruction HCL",
-            "context": "1.05M tokens",
-            "tier": "Frontier Workhorse",
-            "docs_url": "https://platform.openai.com/docs/models/gpt-6",
-            "capabilities": "Tunable reasoning_effort (none to max), Prompt Caching up to 95% off",
+            "tagline": "Advanced Logic & STEM Coding Reasoning with Configurable Effort",
+            "context": "1M tokens",
+            "tier": "Coding Reasoning Flagship",
+            "docs_url": "https://platform.openai.com/docs/models",
+            "capabilities": "Configurable reasoning_effort, Near-Astra Technical Benchmarks, Cost-Effective",
         },
         {
             "id": "gpt-6.1-terra",
             "name": "GPT-6.1 Terra",
-            "tagline": "Visual Architecture Diagrams & Computer Use Synthesis",
-            "context": "1.05M tokens",
-            "tier": "Multimodal Visual",
-            "docs_url": "https://platform.openai.com/docs/models/gpt-6",
-            "capabilities": "DAG Visual Parsing, Infrastructure Diagram Extraction",
+            "tagline": "Fast High-Throughput Reasoning, Visual Proofs & IaC Analysis",
+            "context": "1M tokens",
+            "tier": "High-Velocity Reasoning",
+            "docs_url": "https://platform.openai.com/docs/models",
+            "capabilities": "Fast Decodes, 1M Context Window, Precise Syntactic Patch Generation",
+        },
+        {
+            "id": "gpt-6-sol",
+            "name": "GPT-6 Sol",
+            "tagline": "Balanced Intelligence & Multi-Step Agent Coordination Workhorse",
+            "context": "1M tokens",
+            "tier": "Production Workhorse",
+            "docs_url": "https://platform.openai.com/docs/models",
+            "capabilities": "High Factuality, Low Latency, Agentic Function Calling",
         },
         {
             "id": "gpt-6-luna",
             "name": "GPT-6 Luna",
-            "tagline": "Ultra-Efficient High-Volume Policy Extraction",
-            "context": "1.05M tokens",
-            "tier": "Economy Agent",
-            "docs_url": "https://platform.openai.com/docs/models/gpt-6",
-            "capabilities": "High-Speed Bulk Classification, $0.10/1M input pricing",
+            "tagline": "High-Speed, Cost-Sensitive Invariant Checking & Gating",
+            "context": "1M tokens",
+            "tier": "Economy Fast",
+            "docs_url": "https://platform.openai.com/docs/models",
+            "capabilities": "High-Throughput Streaming, Low Cost Token Execution",
+        },
+        {
+            "id": "gpt-oss-120b",
+            "name": "GPT-OSS (120B)",
+            "tagline": "Open-Weights Deep Reasoning Architecture (Apache 2.0)",
+            "context": "128k tokens",
+            "tier": "Open Flagship",
+            "docs_url": "https://platform.openai.com/docs/models",
+            "capabilities": "Deep Chain-of-Thought, Zero Data Egress, Self-Hostable",
+        },
+        {
+            "id": "gpt-oss-20b",
+            "name": "GPT-OSS (20B)",
+            "tagline": "Compact Open-Weights Reasoning Engine for Edge & Local Runners",
+            "context": "128k tokens",
+            "tier": "Open Lightweight",
+            "docs_url": "https://platform.openai.com/docs/models",
+            "capabilities": "MXFP4 Quantized Execution, Low Resource Overhead",
+        },
+        {
+            "id": "o3-mini",
+            "name": "o3-mini",
+            "tagline": "STEM & Coding Reasoning with Tunable Effort",
+            "context": "200k tokens",
+            "tier": "Coding Reasoning",
+            "docs_url": "https://platform.openai.com/docs/models/o3-mini",
+            "capabilities": "Tunable reasoning_effort (low/medium/high), Invariant Proofs",
+        },
+        {
+            "id": "gpt-4o",
+            "name": "GPT-4o",
+            "tagline": "Omnimodal Workhorse for Standard Patch Generation",
+            "context": "128k tokens",
+            "tier": "Legacy Production",
+            "docs_url": "https://platform.openai.com/docs/models/gpt-4o",
+            "capabilities": "Function Calling, Structured JSON Output",
         },
     ],
     "anthropic": [
         {
+            "id": "claude-fable-5-2",
+            "name": "Claude Fable 5.2",
+            "tagline": "Mythos-Class Architecture for Demanding Reasoning & Long-Horizon Agents",
+            "context": "500k tokens",
+            "tier": "Frontier Reasoning Flagship",
+            "docs_url": "https://docs.anthropic.com/en/docs/about-claude/models",
+            "capabilities": "Adaptive Thinking Always Active, Formal Proofs, Long-Horizon Multi-File Agents",
+        },
+        {
             "id": "claude-opus-5-5",
             "name": "Claude Opus 5.5",
-            "tagline": "Premier Long-Horizon Agentic Coding & Multi-Subagent Control",
-            "context": "1M tokens (128k Output)",
-            "tier": "Frontier Flagship",
+            "tagline": "Enterprise Agentic Coding & Deep Invariant Verification Flagship",
+            "context": "500k tokens",
+            "tier": "Deep Agentic Flagship",
             "docs_url": "https://docs.anthropic.com/en/docs/about-claude/models",
-            "capabilities": "Subagent Coordination, Deep Tool-Use, 128k Max Output Decodes",
+            "capabilities": "Deep Context Retention, Dense Chart/AST Analysis, Computer & Tool Use",
         },
         {
             "id": "claude-sonnet-5-5",
             "name": "Claude Sonnet 5.5",
-            "tagline": "Developer Workhorse for Autonomous HCL Patch Synthesis",
-            "context": "1M tokens",
+            "tagline": "Balanced Coding Workhorse with Dynamic Thinking Effort Control",
+            "context": "200k tokens",
             "tier": "Production Workhorse",
             "docs_url": "https://docs.anthropic.com/en/docs/about-claude/models",
-            "capabilities": "Fine-Grained Extended Thinking, Low Mutation Error Rates",
-        },
-        {
-            "id": "claude-fable-5-1",
-            "name": "Claude Fable 5.1",
-            "tagline": "Extremely Demanding State Verification & Invariant Proofs",
-            "context": "1M tokens",
-            "tier": "Specialized Reasoning",
-            "docs_url": "https://docs.anthropic.com/en/docs/about-claude/models",
-            "capabilities": "High-Effort Reasoning, Formal Verification Grounding",
+            "capabilities": "Fine-Grained Thinking Effort, Low Mutation Error Rates, Fast AST Synthesis",
         },
         {
             "id": "claude-haiku-5-5",
             "name": "Claude Haiku 5.5",
-            "tagline": "Sub-Second Invariant Gating & High-Throughput Verification",
-            "context": "1M tokens",
-            "tier": "Ultra-Fast",
+            "tagline": "Sub-Second Latency & High-Throughput Request Routing",
+            "context": "200k tokens",
+            "tier": "Ultra-Fast Economy",
             "docs_url": "https://docs.anthropic.com/en/docs/about-claude/models",
-            "capabilities": "Low Latency Routing, 90% Prompt Caching Savings",
+            "capabilities": "Maximum Speed, High-Frequency Pre-Flight Validation",
+        },
+        {
+            "id": "claude-3-7-sonnet-20250219",
+            "name": "Claude 3.7 Sonnet",
+            "tagline": "Hybrid Reasoning Engine with Dynamic Extended Thinking",
+            "context": "200k tokens",
+            "tier": "Hybrid Reasoning",
+            "docs_url": "https://docs.anthropic.com/en/docs/about-claude/models",
+            "capabilities": "Extended Thinking, 128k Max Output Decodes",
         },
     ],
     "deepseek": [
         {
             "id": "deepseek-v4-pro",
             "name": "DeepSeek-V4 Pro",
-            "tagline": "1.6T MoE Architecture with Native Chain-of-Thought Trace",
+            "tagline": "Heavy Reasoning & Advanced Agentic Multi-Tool Orchestration",
             "context": "1M tokens",
-            "tier": "Open-Weights Flagship",
-            "docs_url": "https://platform.deepseek.com/docs",
-            "capabilities": "MoE Sparse Reasoning, MIT Licensed Self-Hosting, Low Cost API",
+            "tier": "Frontier Reasoning Flagship",
+            "docs_url": "https://api-docs.deepseek.com",
+            "capabilities": "1M Context Window, Deep Invariant Proofs, Native Context Caching",
         },
         {
-            "id": "deepseek-v4-flash",
-            "name": "DeepSeek-V4 Flash",
-            "tagline": "High-Speed Agentic Causal MoE Engine",
+            "id": "deepseek-flash",
+            "name": "DeepSeek-V4.1 Flash",
+            "tagline": "Native Multimodal High-Velocity Agentic Remediation Engine",
             "context": "1M tokens",
-            "tier": "High Speed",
-            "docs_url": "https://platform.deepseek.com/docs",
-            "capabilities": "Fast Token Generation, Multi-Agent Swarm Dispatch",
+            "tier": "High-Velocity Agentic",
+            "docs_url": "https://api-docs.deepseek.com",
+            "capabilities": "Multimodal Inputs, High-Speed Token Generation, Sub-Second Gating",
         },
         {
             "id": "deepseek-reasoner",
@@ -813,36 +1236,90 @@ AVAILABLE_FRONTIER_MODELS: Dict[str, List[Dict[str, str]]] = {
             "context": "128k tokens",
             "tier": "RL Reasoning",
             "docs_url": "https://platform.deepseek.com/docs",
-            "capabilities": "Chain-of-Thought Reflection, Formal Invariant Proofs",
+            "capabilities": "Native Chain-of-Thought Reflection, Formal Invariant Proofs",
+        },
+        {
+            "id": "deepseek-chat",
+            "name": "DeepSeek-V3",
+            "tagline": "671B MoE Architecture High-Speed Agentic Remediation",
+            "context": "128k tokens",
+            "tier": "MoE Workhorse",
+            "docs_url": "https://platform.deepseek.com/docs",
+            "capabilities": "MoE Sparse Reasoning, Low Cost API",
         },
     ],
     "ollama": [
+        {
+            "id": "qwen3-coder",
+            "name": "Qwen 3 Coder",
+            "tagline": "Alibaba Frontier MoE Coding Model with 256K Context Window",
+            "context": "256k tokens",
+            "tier": "Local Coding Flagship",
+            "docs_url": "https://ollama.com/library/qwen3-coder",
+            "capabilities": "Native MoE Coding, Syntactic HCL AST Parsing, 256K Context",
+        },
+        {
+            "id": "qwen3.8",
+            "name": "Qwen 3.8",
+            "tagline": "Advanced Multimodal & Deep Technical Logic Engine",
+            "context": "256k tokens",
+            "tier": "Local Multimodal Flagship",
+            "docs_url": "https://ollama.com/library/qwen3.8",
+            "capabilities": "Vision & Code Reasoning, Massive Context Retention",
+        },
+        {
+            "id": "gpt-oss:120b",
+            "name": "GPT-OSS (120B Local)",
+            "tagline": "OpenAI Flagship Open-Weights Model with Native MXFP4 Quantization",
+            "context": "128k tokens",
+            "tier": "Local Deep Reasoning",
+            "docs_url": "https://ollama.com/library/gpt-oss",
+            "capabilities": "Complex Chain-of-Thought, Air-Gapped High Security",
+        },
+        {
+            "id": "gpt-oss:20b",
+            "name": "GPT-OSS (20B Local)",
+            "tagline": "Fast Open-Weights Reasoning for Local Desktop Workstations",
+            "context": "128k tokens",
+            "tier": "Local Fast Reasoning",
+            "docs_url": "https://ollama.com/library/gpt-oss",
+            "capabilities": "Lightweight Memory Footprint, Fast Invariant Simulation",
+        },
+        {
+            "id": "nemotron-3.5-lightning",
+            "name": "NVIDIA Nemotron 3.5 Lightning",
+            "tagline": "High-Efficiency MoE Architecture Engineered for Low-Latency Agents",
+            "context": "128k tokens",
+            "tier": "Local High-Velocity",
+            "docs_url": "https://ollama.com/library/nemotron",
+            "capabilities": "Ultra-Low Latency, Constant Agent Loop Performance",
+        },
+        {
+            "id": "gemma4",
+            "name": "Google Gemma 4",
+            "tagline": "Google Latest Compact Open Weights for Fast Policy Checks",
+            "context": "64k tokens",
+            "tier": "Local Compact",
+            "docs_url": "https://ollama.com/library/gemma4",
+            "capabilities": "Minimal Parameter Footprint, Fast Local Token Generation",
+        },
+        {
+            "id": "deepseek-v4.1-flash",
+            "name": "DeepSeek V4.1 Flash (Local/Cloud)",
+            "tagline": "Fast Multimodal Agent Engine with 1M Token Context",
+            "context": "1M tokens",
+            "tier": "Local/Cloud Hybrid",
+            "docs_url": "https://ollama.com/library/deepseek-v4.1-flash",
+            "capabilities": "Multimodal Inputs, High Token Velocity",
+        },
         {
             "id": "llama3.3",
             "name": "Llama 3.3 (70B)",
             "tagline": "Meta Open-Weights Enterprise Local Flagship",
             "context": "128k tokens",
-            "tier": "Local Flagship",
+            "tier": "Local Workhorse",
             "docs_url": "https://ollama.com/library/llama3.3",
             "capabilities": "Air-Gapped Offline Execution, Zero Egress Policy",
-        },
-        {
-            "id": "qwen2.5-coder:32b",
-            "name": "Qwen 2.5 Coder (32B)",
-            "tagline": "Specialized Open-Weights HCL & Code Repair Engine",
-            "context": "128k tokens",
-            "tier": "Local Specialist",
-            "docs_url": "https://ollama.com/library/qwen2.5-coder",
-            "capabilities": "Syntactic HCL Parsing, Additive Resource Insertion",
-        },
-        {
-            "id": "deepseek-r1:70b",
-            "name": "DeepSeek-R1 (70B)",
-            "tagline": "Local Chain-of-Thought Step-by-Step Reasoning",
-            "context": "64k tokens",
-            "tier": "Local Reasoning",
-            "docs_url": "https://ollama.com/library/deepseek-r1",
-            "capabilities": "Autonomous Local Planning, Privacy-Preserving Inference",
         },
     ],
 }
@@ -923,13 +1400,13 @@ def get_settings() -> SettingsModel:
             provider = "gemini"
 
     provider_models = {
-        "gemini": os.environ.get("GEMINI_MODEL", cfg.llm.gemini.model),
-        "openai": os.environ.get("OPENAI_MODEL", cfg.llm.openai.model),
-        "anthropic": os.environ.get("ANTHROPIC_MODEL", cfg.llm.anthropic.model),
-        "deepseek": os.environ.get("DEEPSEEK_MODEL", cfg.llm.deepseek.model),
-        "ollama": os.environ.get("OLLAMA_MODEL", cfg.llm.ollama.model),
+        "gemini": os.environ.get("GEMINI_MODEL", cfg.llm.gemini.model) or "gemini-4-argon",
+        "openai": os.environ.get("OPENAI_MODEL", cfg.llm.openai.model) or "gpt-6-astra",
+        "anthropic": os.environ.get("ANTHROPIC_MODEL", cfg.llm.anthropic.model) or "claude-sonnet-5-5",
+        "deepseek": os.environ.get("DEEPSEEK_MODEL", cfg.llm.deepseek.model) or "deepseek-v4-pro",
+        "ollama": os.environ.get("OLLAMA_MODEL", cfg.llm.ollama.model) or "qwen3-coder",
     }
-    current_model = provider_models.get(provider, "gemini-4-argon")
+    current_model = provider_models.get(provider) or "gemini-4-argon"
 
     return SettingsModel(
         current_provider=provider,
@@ -1185,13 +1662,13 @@ def validate_model(req: ModelValidateRequest) -> ModelValidateResponse:
 
     try:
         if provider == "gemini":
-            client = GeminiClient(api_key=api_key, model_name=model)
+            client = GeminiClient(api_key=api_key, model=model, model_name=model)
         elif provider == "openai":
-            client = OpenAIClient(api_key=api_key, model_name=model)
+            client = OpenAIClient(api_key=api_key, model=model, model_name=model)
         elif provider == "anthropic":
-            client = AnthropicClient(api_key=api_key, model_name=model)
+            client = AnthropicClient(api_key=api_key, model=model, model_name=model)
         elif provider == "deepseek":
-            client = DeepSeekClient(api_key=api_key, model_name=model)
+            client = DeepSeekClient(api_key=api_key, model=model, model_name=model)
         else:
             return ModelValidateResponse(
                 valid=False,

@@ -98,9 +98,10 @@ window.ReviewModule = (function () {
 
     const modelTag = document.getElementById("reviewActiveModelTag");
     if (modelTag) {
-      const s = window.AppState && window.AppState.settings;
-      const m = (s && s.current_model) || "gemini-4-argon";
-      const modelDisplayName = (window.getModelDisplayName && s) ? window.getModelDisplayName(s.current_provider, m) : m;
+      const s = (window.AppState && window.AppState.settings) || {};
+      const p = s.current_provider || "gemini";
+      const m = s.current_model || "gemini-4-argon";
+      const modelDisplayName = (window.getModelDisplayName) ? window.getModelDisplayName(p, m) : "Gemini 4 Argon";
       modelTag.textContent = `Synthesized by: ${modelDisplayName}`;
     }
 
